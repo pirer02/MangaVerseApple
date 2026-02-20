@@ -80,7 +80,10 @@ data class LectorCapituloScreen(
                 scrollInicialHecho = false
 
                 val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
-                UserManager.guardarProgreso(manga.titulo, nombreLimpio, 0, esColor)
+
+                // MAGIA AQUÍ: Obtenemos la página guardada ANTES de actualizar el historial para no perderla
+                val paginaGuardada = UserManager.getPaginaGuardada(manga.titulo, nombreLimpio, esColor)
+                UserManager.guardarProgreso(manga.titulo, nombreLimpio, paginaGuardada, esColor)
 
                 paginas = servicio.obtenerPaginas(manga.titulo, capituloActual, esColor)
                 capituloCargado = capituloActual
@@ -178,6 +181,7 @@ data class LectorCapituloScreen(
 
                     var scale by remember { mutableFloatStateOf(1f) }
                     var offsetX by remember { mutableFloatStateOf(0f) }
+                    var offsetY by remember { mutableFloatStateOf(0f) } // AÑADIDO
 
                     Box(
                         modifier = Modifier
@@ -188,6 +192,7 @@ data class LectorCapituloScreen(
                                     onDoubleTap = {
                                         scale = 1f
                                         offsetX = 0f
+                                        offsetY = 0f // AÑADIDO
                                     }
                                 )
                             }
@@ -208,7 +213,6 @@ data class LectorCapituloScreen(
                                             scale = (scale * zoom).coerceIn(1f, 4f)
                                             val scaleFactor = scale / oldScale
 
-                                            // 1. Zoom magnético hacia tus dedos (solo ocurre si de verdad estás ampliando)
                                             if (scaleFactor != 1f) {
                                                 val cx = centroid.x - (widthPx / 2f)
                                                 val cy = centroid.y - (heightPx / 2f)
@@ -217,22 +221,31 @@ data class LectorCapituloScreen(
                                                 val shiftY = cy * scaleFactor - cy
 
                                                 offsetX -= shiftX
-                                                // Convertimos el desplazamiento visual Y en scroll crudo de la lista
-                                                listState.dispatchRawDelta(shiftY / scale)
+                                                offsetY -= shiftY // Ahora trackeamos el desfase vertical del zoom
                                             }
 
-                                            // 2. Movimiento libre y diagonal continuo
+                                            // Sumamos el movimiento del dedo a nuestras variables
                                             offsetX += pan.x
-                                            // Límites para que la imagen no se salga por la izquierda o la derecha
+                                            offsetY += pan.y
+
+                                            // Límites para que la imagen no se salga por los lados
                                             val maxOffsetX = (widthPx * (scale - 1f)) / 2f
                                             offsetX = offsetX.coerceIn(-maxOffsetX, maxOffsetX)
 
-                                            // El movimiento vertical se inyecta directamente a la lista sin causar conflictos
-                                            if (pan.y != 0f) {
-                                                listState.dispatchRawDelta(-pan.y / scale)
+                                            // MAGIA DEL ZOOM Y: Calculamos el límite vertical generado por el zoom
+                                            val maxOffsetY = (heightPx * (scale - 1f)) / 2f
+                                            val nuevoOffsetY = offsetY.coerceIn(-maxOffsetY, maxOffsetY)
+
+                                            // Miramos si hay movimiento "sobrante" tras chocar con el borde vertical
+                                            val panSobrante = offsetY - nuevoOffsetY
+                                            offsetY = nuevoOffsetY // Aplicamos el límite seguro
+
+                                            // Solo enviamos a la lista el movimiento sobrante (para avanzar página)
+                                            if (panSobrante != 0f) {
+                                                listState.dispatchRawDelta(-panSobrante / scale)
                                             }
 
-                                            // Confirmamos a Compose que nosotros hemos manejado el gesto
+                                            // Confirmamos a Compose
                                             event.changes.forEach { if (it.positionChanged()) it.consume() }
                                         }
                                     } while (event.changes.any { it.pressed })
@@ -241,6 +254,7 @@ data class LectorCapituloScreen(
                                     if (scale <= 1f) {
                                         scale = 1f
                                         offsetX = 0f
+                                        offsetY = 0f // AÑADIDO
                                     }
                                 }
                             }
@@ -256,6 +270,7 @@ data class LectorCapituloScreen(
                                     scaleX = scale,
                                     scaleY = scale,
                                     translationX = offsetX,
+                                    translationY = offsetY, // AÑADIDO
                                     // El origen vuelve al centro, lo que estabiliza matemáticamente todo el bloque
                                     transformOrigin = TransformOrigin.Center
                                 ),
