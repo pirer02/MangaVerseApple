@@ -10,4 +10,4 @@ data class Manga(
     val generos: List<String> = emptyList(),
     val estado: String = "Desconocido",
     val tipo: String = "Manga"
-) : java.io.Serializable
+)
