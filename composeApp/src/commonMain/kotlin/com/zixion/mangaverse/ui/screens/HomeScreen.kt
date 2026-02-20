@@ -262,20 +262,13 @@ class HomeScreen : Screen {
                     var scoreNormal = -1
                     var nextCapNormal = ""
 
-                    // --- LÓGICA NORMAL ---
                     if (ultimoNormal != null) {
                         val idx = capsNormal.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoNormal }
                         if (idx != -1) {
                             val leido = UserManager.isCapituloLeido(manga.titulo, ultimoNormal, false)
-
-                            if (leido && idx >= capsNormal.size - 1) {
-                                // MÁGIA AQUÍ: Es el último capítulo y ya lo leyó.
-                                // Lo ignoramos dejando el score en -1 para que desaparezca.
-                            } else {
-                                scoreNormal = (idx * 2) + if (leido) 1 else 0
-                                val nextNormalIdx = if (leido && idx < capsNormal.size - 1) idx + 1 else idx
-                                nextCapNormal = capsNormal[nextNormalIdx]
-                            }
+                            scoreNormal = (idx * 2) + if (leido) 1 else 0
+                            val nextNormalIdx = if (leido && idx < capsNormal.size - 1) idx + 1 else idx
+                            nextCapNormal = capsNormal[nextNormalIdx]
                         }
                     }
 
@@ -284,40 +277,35 @@ class HomeScreen : Screen {
                     var colorTieneSiguiente = false
                     var colorSePasaANormal = false
 
-                    // --- LÓGICA COLOR ---
                     if (ultimoColor != null) {
                         val idxMasterDeColor = capsNormal.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
 
                         if (idxMasterDeColor != -1) {
                             val leido = UserManager.isCapituloLeido(manga.titulo, ultimoColor, true)
-                            val idxInColorList = capsColor.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
+                            scoreColor = (idxMasterDeColor * 2) + if (leido) 1 else 0
 
+                            val idxInColorList = capsColor.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
                             if (idxInColorList != -1) {
                                 if (leido) {
                                     if (idxInColorList < capsColor.size - 1) {
                                         nextCapColor = capsColor[idxInColorList + 1]
                                         colorTieneSiguiente = true
-                                        scoreColor = (idxMasterDeColor * 2) + 1
                                     } else {
                                         if (idxMasterDeColor < capsNormal.size - 1) {
                                             colorSePasaANormal = true
                                             nextCapColor = capsNormal[idxMasterDeColor + 1]
-                                            scoreColor = (idxMasterDeColor * 2) + 1
                                         } else {
-                                            // MÁGIA AQUÍ: Leyó el último a color y tampoco hay más normales.
-                                            // Se ignora (scoreColor queda en -1).
+                                            nextCapColor = capsNormal[idxMasterDeColor]
                                         }
                                     }
                                 } else {
                                     nextCapColor = capsColor[idxInColorList]
                                     colorTieneSiguiente = true
-                                    scoreColor = (idxMasterDeColor * 2)
                                 }
                             }
                         }
                     }
 
-                    // --- DECISIÓN FINAL ---
                     if (scoreNormal != -1 || scoreColor != -1) {
                         if (scoreNormal > scoreColor) {
                             listaContinuarTemp.add(ContinuarData(manga, nextCapNormal, ModoLectura.NORMAL))
@@ -337,7 +325,7 @@ class HomeScreen : Screen {
                             }
                         }
                     }
-                } catch (e: Exception) { e.printStackTrace() }
+                } catch (e: Exception) { }
             }
         }
 
