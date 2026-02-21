@@ -30,6 +30,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.saveable.rememberSaveable
 
 enum class Seccion { INICIO, BIBLIOTECA, EXPLORAR }
 enum class ModoLectura { NORMAL, COLOR, PREGUNTAR }
@@ -48,7 +49,7 @@ class HomeScreen : Screen {
         val scope = rememberCoroutineScope()
         val snackbarHostState = remember { SnackbarHostState() }
 
-        var seccionActual by remember { mutableStateOf(Seccion.INICIO) }
+        var seccionActual by rememberSaveable { mutableStateOf(Seccion.INICIO) }
         var listaCompleta by remember { mutableStateOf<List<Manga>>(emptyList()) }
         var mangasContinuar by remember { mutableStateOf<List<ContinuarData>>(emptyList()) }
         var categoriasDinamicas by remember { mutableStateOf<List<CategoriaManga>>(emptyList()) }
@@ -410,7 +411,7 @@ fun VistaBiblioteca(lista: List<Manga>, onClick: (Manga) -> Unit, onToggle: (Man
 
 @Composable
 fun VistaExplorar(lista: List<Manga>, onToggle: (Manga) -> Unit, onClick: (Manga) -> Unit) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = query, onValueChange = { query = it }, placeholder = { Text("Buscar por título...", color = Color.Gray) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
