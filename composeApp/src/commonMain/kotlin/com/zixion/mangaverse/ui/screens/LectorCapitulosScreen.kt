@@ -76,7 +76,6 @@ data class LectorCapituloScreen(
                 cargando = true
                 val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
 
-                // Marcamos en el historial cuál es el ÚLTIMO capítulo que hemos tocado de esta obra
                 UserManager.actualizarHistorial(manga.titulo, nombreLimpio, esColor)
 
                 paginas = servicio.obtenerPaginas(manga.titulo, capituloActual, esColor)
@@ -140,7 +139,6 @@ data class LectorCapituloScreen(
                     val widthPx = constraints.maxWidth.toFloat()
                     val heightPx = constraints.maxHeight.toFloat()
 
-                    // LA CLAVE DE ORO: Evita el State Leak entre mangas distintos
                     key(manga.titulo, capituloActual) {
                         val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
                         val paginaGuardada = remember { UserManager.getPaginaGuardada(manga.titulo, nombreLimpio, esColor) }
@@ -151,29 +149,27 @@ data class LectorCapituloScreen(
                         val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
                         var ultimaPaginaConocida by remember { mutableIntStateOf(initialIndex) }
 
+                        // MAGIA: Esto obliga al botón atrás a leer siempre la página REAL, pase lo que pase
+                        val paginaParaGuardar by rememberUpdatedState(ultimaPaginaConocida)
+
                         LaunchedEffect(listState) {
                             snapshotFlow { listState.firstVisibleItemIndex }
                                 .collectLatest { index ->
-                                    val item = listState.layoutInfo.visibleItemsInfo.find { it.index == index }
+                                    ultimaPaginaConocida = index
+                                    delay(500)
+                                    UserManager.guardarProgreso(manga.titulo, nombreLimpio, index, esColor)
 
-                                    // IGNORA imágenes fantasma (menores a 50px de alto) mientras cargan
-                                    if (item != null && item.size > 50) {
-                                        ultimaPaginaConocida = index
-                                        delay(500)
-                                        UserManager.guardarProgreso(manga.titulo, nombreLimpio, index, esColor)
-
-                                        val ultimaVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                                        if (ultimaVisible >= paginas.size - 1) {
-                                            UserManager.marcarCapituloComoLeido(manga.titulo, nombreLimpio, esColor)
-                                        }
+                                    val ultimaVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                    if (ultimaVisible >= paginas.size - 1) {
+                                        UserManager.marcarCapituloComoLeido(manga.titulo, nombreLimpio, esColor)
                                     }
                                 }
                         }
 
-                        // SALVAVIDAS: Guarda exactamente por dónde ibas justo al darle al botón atrás
+                        // SALVAVIDAS: Usa la página actualizada al salir de la pantalla
                         DisposableEffect(Unit) {
                             onDispose {
-                                UserManager.guardarProgreso(manga.titulo, nombreLimpio, ultimaPaginaConocida, esColor)
+                                UserManager.guardarProgreso(manga.titulo, nombreLimpio, paginaParaGuardar, esColor)
                             }
                         }
 
@@ -259,10 +255,17 @@ data class LectorCapituloScreen(
                                             .build()
                                     }
 
+                                    // MAGIA 2: El Maniquí de Carga. Evita el colapso a 0 sin crear separaciones feas
+                                    var isLoaded by remember(rutaPagina) { mutableStateOf(false) }
+
                                     AsyncImage(
                                         model = request,
                                         contentDescription = null,
-                                        modifier = Modifier.fillMaxWidth(), // <- Sin forzar tamaños, sin huecos
+                                        onSuccess = { isLoaded = true },
+                                        onError = { isLoaded = true },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .then(if (isLoaded) Modifier else Modifier.aspectRatio(0.71f)),
                                         contentScale = ContentScale.FillWidth,
                                         filterQuality = FilterQuality.High
                                     )
