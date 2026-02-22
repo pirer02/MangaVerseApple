@@ -56,6 +56,7 @@ class HomeScreen : Screen {
 
         var cargando by remember { mutableStateOf(true) }
         var mostrarDialogoBorrar by remember { mutableStateOf(false) }
+        var mostrarDialogoActualizar by remember { mutableStateOf(false) }
         var mangaABorrarProgreso by remember { mutableStateOf<Manga?>(null) }
         var dialogContinuarColor by remember { mutableStateOf<ContinuarData?>(null) }
 
@@ -90,6 +91,22 @@ class HomeScreen : Screen {
                             NavigationDrawerItem(label = { Text("Explorar") }, selected = seccionActual == Seccion.EXPLORAR, onClick = { seccionActual = Seccion.EXPLORAR; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Search, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
                             Spacer(modifier = Modifier.weight(1f))
                             HorizontalDivider(color = Color.White.copy(alpha = 0.3f))
+
+                            NavigationDrawerItem(
+                                label = { Text("Actualización Manual", fontWeight = FontWeight.Bold) },
+                                selected = false,
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    mostrarDialogoActualizar = true
+                                },
+                                icon = { Icon(Icons.Default.Refresh, null) },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedTextColor = Color(0xFF4DA8DA),
+                                    unselectedIconColor = Color(0xFF4DA8DA)
+                                ),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+
                             NavigationDrawerItem(label = { Text("Borrar Datos", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close() }; mostrarDialogoBorrar = true }, icon = { Icon(Icons.Default.Delete, null) }, colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFFFF6B6B), unselectedIconColor = Color(0xFFFF6B6B)), modifier = Modifier.padding(12.dp))
                             Spacer(Modifier.height(20.dp))
                         }
@@ -216,6 +233,34 @@ class HomeScreen : Screen {
             )
         }
 
+        if (mostrarDialogoActualizar) {
+            AlertDialog(
+                onDismissRequest = { mostrarDialogoActualizar = false },
+                title = { Text("¿Forzar actualización?", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = { Text("Se buscará nuevo contenido en el servidor inmediatamente sin esperar el tiempo de caché. Esto puede tardar unos segundos.", color = Color.LightGray) },
+                containerColor = Color(0xFF1E1E1E),
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            mostrarDialogoActualizar = false
+                            cargando = true
+                            scope.launch {
+                                UserManager.forzarExpiracionCache()
+                                cargarDatos(servicio) { lista, continuar, categorias ->
+                                    listaCompleta = lista
+                                    mangasContinuar = continuar
+                                    categoriasDinamicas = categorias
+                                    cargando = false
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4DA8DA))
+                    ) { Text("Actualizar", color = Color.Black, fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = { TextButton(onClick = { mostrarDialogoActualizar = false }) { Text("Cancelar", color = Color.White) } }
+            )
+        }
+
         if (mostrarDialogoBorrar) {
             AlertDialog(
                 onDismissRequest = { mostrarDialogoBorrar = false },
@@ -247,6 +292,10 @@ class HomeScreen : Screen {
         onResult: (List<Manga>, List<ContinuarData>, List<CategoriaManga>) -> Unit
     ) = coroutineScope {
         UserManager.cargar()
+
+        // 1. Guardamos el estado de la caché ANTES de empezar a pedir datos
+        val cacheEstabaExpirada = UserManager.isCacheExpired()
+
         val todosBasicos = servicio.obtenerMangas()
         val todosCompletos = todosBasicos.map { async { servicio.obtenerInfoManga(it) } }.awaitAll()
 
@@ -267,9 +316,15 @@ class HomeScreen : Screen {
                         val idx = capsNormal.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoNormal }
                         if (idx != -1) {
                             val leido = UserManager.isCapituloLeido(manga.titulo, ultimoNormal, false)
-                            scoreNormal = (idx * 2) + if (leido) 1 else 0
-                            val nextNormalIdx = if (leido && idx < capsNormal.size - 1) idx + 1 else idx
-                            nextCapNormal = capsNormal[nextNormalIdx]
+
+                            // SOLUCIÓN 2A: Si está leído y es el último disponible, lo ignoramos.
+                            if (leido && idx >= capsNormal.size - 1) {
+                                // No hacemos nada, scoreNormal se queda en -1
+                            } else {
+                                scoreNormal = (idx * 2) + if (leido) 1 else 0
+                                val nextNormalIdx = if (leido && idx < capsNormal.size - 1) idx + 1 else idx
+                                nextCapNormal = capsNormal[nextNormalIdx]
+                            }
                         }
                     }
 
@@ -283,25 +338,34 @@ class HomeScreen : Screen {
 
                         if (idxMasterDeColor != -1) {
                             val leido = UserManager.isCapituloLeido(manga.titulo, ultimoColor, true)
-                            scoreColor = (idxMasterDeColor * 2) + if (leido) 1 else 0
-
                             val idxInColorList = capsColor.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
-                            if (idxInColorList != -1) {
-                                if (leido) {
-                                    if (idxInColorList < capsColor.size - 1) {
-                                        nextCapColor = capsColor[idxInColorList + 1]
-                                        colorTieneSiguiente = true
-                                    } else {
-                                        if (idxMasterDeColor < capsNormal.size - 1) {
-                                            colorSePasaANormal = true
-                                            nextCapColor = capsNormal[idxMasterDeColor + 1]
+
+                            // SOLUCIÓN 2B: Verificamos si no quedan capítulos a color ni normales
+                            val noHayMasColor = idxInColorList == -1 || idxInColorList >= capsColor.size - 1
+                            val noHayMasNormal = idxMasterDeColor >= capsNormal.size - 1
+
+                            if (leido && noHayMasColor && noHayMasNormal) {
+                                // Fin del manga en su totalidad, scoreColor se queda en -1
+                            } else {
+                                scoreColor = (idxMasterDeColor * 2) + if (leido) 1 else 0
+
+                                if (idxInColorList != -1) {
+                                    if (leido) {
+                                        if (idxInColorList < capsColor.size - 1) {
+                                            nextCapColor = capsColor[idxInColorList + 1]
+                                            colorTieneSiguiente = true
                                         } else {
-                                            nextCapColor = capsNormal[idxMasterDeColor]
+                                            if (idxMasterDeColor < capsNormal.size - 1) {
+                                                colorSePasaANormal = true
+                                                nextCapColor = capsNormal[idxMasterDeColor + 1]
+                                            } else {
+                                                nextCapColor = capsNormal[idxMasterDeColor]
+                                            }
                                         }
+                                    } else {
+                                        nextCapColor = capsColor[idxInColorList]
+                                        colorTieneSiguiente = true
                                     }
-                                } else {
-                                    nextCapColor = capsColor[idxInColorList]
-                                    colorTieneSiguiente = true
                                 }
                             }
                         }
@@ -340,6 +404,11 @@ class HomeScreen : Screen {
             }
         } else {
             categoriasGeneradas.add(CategoriaManga("Descubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
+        }
+
+        // 2. Al final de la función, si la caché estaba expirada, AHORA SÍ reiniciamos el reloj
+        if (cacheEstabaExpirada) {
+            UserManager.actualizarTimestampCache()
         }
 
         onResult(todosCompletos, listaContinuarTemp, categoriasGeneradas)

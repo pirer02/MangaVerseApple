@@ -71,52 +71,17 @@ data class LectorCapituloScreen(
         var capituloCargado by rememberSaveable { mutableStateOf("") }
         var uiVisible by rememberSaveable { mutableStateOf(true) }
 
-        val listState = rememberLazyListState()
-        var scrollInicialHecho by rememberSaveable { mutableStateOf(false) }
-
         LaunchedEffect(capituloActual) {
             if (capituloCargado != capituloActual || paginas.isEmpty()) {
                 cargando = true
-                scrollInicialHecho = false
-
                 val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
-                UserManager.guardarProgreso(manga.titulo, nombreLimpio, 0, esColor)
+
+                // Marcamos en el historial cuál es el ÚLTIMO capítulo que hemos tocado de esta obra
+                UserManager.actualizarHistorial(manga.titulo, nombreLimpio, esColor)
 
                 paginas = servicio.obtenerPaginas(manga.titulo, capituloActual, esColor)
                 capituloCargado = capituloActual
                 cargando = false
-            }
-        }
-
-        LaunchedEffect(paginas) {
-            if (paginas.isNotEmpty() && !scrollInicialHecho) {
-                val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
-                val paginaGuardada = UserManager.getPaginaGuardada(manga.titulo, nombreLimpio, esColor)
-                val estaLeido = UserManager.isCapituloLeido(manga.titulo, nombreLimpio, esColor)
-
-                if (!estaLeido && paginaGuardada in 0 until paginas.size) {
-                    listState.scrollToItem(paginaGuardada)
-                } else {
-                    listState.scrollToItem(0)
-                }
-                scrollInicialHecho = true
-            }
-        }
-
-        LaunchedEffect(listState, paginas, scrollInicialHecho) {
-            if (paginas.isNotEmpty() && scrollInicialHecho) {
-                snapshotFlow { listState.layoutInfo }
-                    .collectLatest { layoutInfo ->
-                        delay(600)
-                        val primeraVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
-                        val ultimaVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                        val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
-
-                        UserManager.guardarProgreso(manga.titulo, nombreLimpio, primeraVisible, esColor)
-                        if (ultimaVisible >= paginas.size - 1) {
-                            UserManager.marcarCapituloComoLeido(manga.titulo, nombreLimpio, esColor)
-                        }
-                    }
             }
         }
 
@@ -172,116 +137,136 @@ data class LectorCapituloScreen(
                         Text("No se pudieron cargar las imágenes", color = Color.Gray)
                     }
                 } else {
-                    // Obtenemos los píxeles reales de la pantalla de forma ultrarrápida
                     val widthPx = constraints.maxWidth.toFloat()
                     val heightPx = constraints.maxHeight.toFloat()
 
-                    var scale by remember { mutableFloatStateOf(1f) }
-                    var offsetX by remember { mutableFloatStateOf(0f) }
+                    // LA CLAVE DE ORO: Evita el State Leak entre mangas distintos
+                    key(manga.titulo, capituloActual) {
+                        val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
+                        val paginaGuardada = remember { UserManager.getPaginaGuardada(manga.titulo, nombreLimpio, esColor) }
+                        val estaLeido = remember { UserManager.isCapituloLeido(manga.titulo, nombreLimpio, esColor) }
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onTap = { uiVisible = !uiVisible },
-                                    onDoubleTap = {
-                                        scale = 1f
-                                        offsetX = 0f
-                                    }
-                                )
-                            }
-                            // MOTOR DE GESTOS DEFINITIVO A PRUEBA DE FALLOS
-                            .pointerInput(Unit) {
-                                awaitEachGesture {
-                                    awaitFirstDown(requireUnconsumed = false)
-                                    do {
-                                        val event = awaitPointerEvent()
-                                        val zoom = event.calculateZoom()
-                                        val pan = event.calculatePan()
-                                        val centroid = event.calculateCentroid(useCurrent = false)
+                        val initialIndex = if (!estaLeido && paginaGuardada in paginas.indices) paginaGuardada else 0
 
-                                        val isMultiTouch = event.changes.size > 1
+                        val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+                        var ultimaPaginaConocida by remember { mutableIntStateOf(initialIndex) }
 
-                                        if (scale > 1f || isMultiTouch) {
-                                            val oldScale = scale
-                                            scale = (scale * zoom).coerceIn(1f, 4f)
-                                            val scaleFactor = scale / oldScale
+                        LaunchedEffect(listState) {
+                            snapshotFlow { listState.firstVisibleItemIndex }
+                                .collectLatest { index ->
+                                    val item = listState.layoutInfo.visibleItemsInfo.find { it.index == index }
 
-                                            // 1. Zoom magnético hacia tus dedos (solo ocurre si de verdad estás ampliando)
-                                            if (scaleFactor != 1f) {
-                                                val cx = centroid.x - (widthPx / 2f)
-                                                val cy = centroid.y - (heightPx / 2f)
+                                    // IGNORA imágenes fantasma (menores a 50px de alto) mientras cargan
+                                    if (item != null && item.size > 50) {
+                                        ultimaPaginaConocida = index
+                                        delay(500)
+                                        UserManager.guardarProgreso(manga.titulo, nombreLimpio, index, esColor)
 
-                                                val shiftX = cx * scaleFactor - cx
-                                                val shiftY = cy * scaleFactor - cy
-
-                                                offsetX -= shiftX
-                                                // Convertimos el desplazamiento visual Y en scroll crudo de la lista
-                                                listState.dispatchRawDelta(shiftY / scale)
-                                            }
-
-                                            // 2. Movimiento libre y diagonal continuo
-                                            offsetX += pan.x
-                                            // Límites para que la imagen no se salga por la izquierda o la derecha
-                                            val maxOffsetX = (widthPx * (scale - 1f)) / 2f
-                                            offsetX = offsetX.coerceIn(-maxOffsetX, maxOffsetX)
-
-                                            // El movimiento vertical se inyecta directamente a la lista sin causar conflictos
-                                            if (pan.y != 0f) {
-                                                listState.dispatchRawDelta(-pan.y / scale)
-                                            }
-
-                                            // Confirmamos a Compose que nosotros hemos manejado el gesto
-                                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                        val ultimaVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                        if (ultimaVisible >= paginas.size - 1) {
+                                            UserManager.marcarCapituloComoLeido(manga.titulo, nombreLimpio, esColor)
                                         }
-                                    } while (event.changes.any { it.pressed })
-
-                                    // Restaurar posición si volvemos a vista normal
-                                    if (scale <= 1f) {
-                                        scale = 1f
-                                        offsetX = 0f
                                     }
                                 }
+                        }
+
+                        // SALVAVIDAS: Guarda exactamente por dónde ibas justo al darle al botón atrás
+                        DisposableEffect(Unit) {
+                            onDispose {
+                                UserManager.guardarProgreso(manga.titulo, nombreLimpio, ultimaPaginaConocida, esColor)
                             }
-                    ) {
-                        LazyColumn(
-                            state = listState,
-                            // Magia: bloqueamos el scroll nativo de Compose MIENTRAS estás ampliado
-                            // para que nuestro motor 2D lo gestione sin interferencias ni "flings" accidentales.
-                            userScrollEnabled = scale <= 1f,
+                        }
+
+                        var scale by remember { mutableFloatStateOf(1f) }
+                        var offsetX by remember { mutableFloatStateOf(0f) }
+
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .graphicsLayer(
-                                    scaleX = scale,
-                                    scaleY = scale,
-                                    translationX = offsetX,
-                                    // El origen vuelve al centro, lo que estabiliza matemáticamente todo el bloque
-                                    transformOrigin = TransformOrigin.Center
-                                ),
-                            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 40.dp)
-                        ) {
-                            items(paginas, key = { it }) { rutaPagina ->
-                                val request = remember(rutaPagina, context) {
-                                    ImageRequest.Builder(context)
-                                        .data(if (rutaPagina.startsWith("http")) rutaPagina else rutaPagina.toPath())
-                                        .size(Size.ORIGINAL)
-                                        .scale(Scale.FIT)
-                                        .memoryCachePolicy(CachePolicy.ENABLED)
-                                        .diskCachePolicy(CachePolicy.ENABLED)
-                                        .crossfade(true)
-                                        .build()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onTap = { uiVisible = !uiVisible },
+                                        onDoubleTap = { scale = 1f; offsetX = 0f }
+                                    )
                                 }
+                                .pointerInput(Unit) {
+                                    awaitEachGesture {
+                                        awaitFirstDown(requireUnconsumed = false)
+                                        do {
+                                            val event = awaitPointerEvent()
+                                            val zoom = event.calculateZoom()
+                                            val pan = event.calculatePan()
+                                            val centroid = event.calculateCentroid(useCurrent = false)
 
-                                AsyncImage(
-                                    model = request,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .wrapContentHeight(),
-                                    contentScale = ContentScale.FillWidth,
-                                    filterQuality = FilterQuality.High
-                                )
+                                            val isMultiTouch = event.changes.size > 1
+
+                                            if (scale > 1f || isMultiTouch) {
+                                                val oldScale = scale
+                                                scale = (scale * zoom).coerceIn(1f, 4f)
+                                                val scaleFactor = scale / oldScale
+
+                                                if (scaleFactor != 1f) {
+                                                    val cx = centroid.x - (widthPx / 2f)
+                                                    val cy = centroid.y - (heightPx / 2f)
+
+                                                    val shiftX = cx * scaleFactor - cx
+                                                    val shiftY = cy * scaleFactor - cy
+
+                                                    offsetX -= shiftX
+                                                    listState.dispatchRawDelta(shiftY / scale)
+                                                }
+
+                                                offsetX += pan.x
+                                                val maxOffsetX = (widthPx * (scale - 1f)) / 2f
+                                                offsetX = offsetX.coerceIn(-maxOffsetX, maxOffsetX)
+
+                                                if (pan.y != 0f) {
+                                                    listState.dispatchRawDelta(-pan.y / scale)
+                                                }
+
+                                                event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                            }
+                                        } while (event.changes.any { it.pressed })
+
+                                        if (scale <= 1f) {
+                                            scale = 1f; offsetX = 0f
+                                        }
+                                    }
+                                }
+                        ) {
+                            LazyColumn(
+                                state = listState,
+                                userScrollEnabled = scale <= 1f,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer(
+                                        scaleX = scale,
+                                        scaleY = scale,
+                                        translationX = offsetX,
+                                        transformOrigin = TransformOrigin.Center
+                                    ),
+                                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 40.dp)
+                            ) {
+                                items(paginas, key = { it }) { rutaPagina ->
+                                    val request = remember(rutaPagina, context) {
+                                        ImageRequest.Builder(context)
+                                            .data(if (rutaPagina.startsWith("http")) rutaPagina else rutaPagina.toPath())
+                                            .size(Size.ORIGINAL)
+                                            .scale(Scale.FIT)
+                                            .memoryCachePolicy(CachePolicy.ENABLED)
+                                            .diskCachePolicy(CachePolicy.ENABLED)
+                                            .crossfade(true)
+                                            .build()
+                                    }
+
+                                    AsyncImage(
+                                        model = request,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxWidth(), // <- Sin forzar tamaños, sin huecos
+                                        contentScale = ContentScale.FillWidth,
+                                        filterQuality = FilterQuality.High
+                                    )
+                                }
                             }
                         }
                     }

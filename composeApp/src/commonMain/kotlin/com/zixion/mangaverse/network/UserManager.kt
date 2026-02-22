@@ -57,6 +57,11 @@ object UserManager {
         guardar()
     }
 
+    fun forzarExpiracionCache() {
+        data.lastUpdateTimestamp = 0L
+        guardar()
+    }
+
     fun toggleBiblioteca(titulo: String): Boolean {
         val agregado = if (data.biblioteca.contains(titulo)) {
             data.biblioteca.remove(titulo)
@@ -79,6 +84,12 @@ object UserManager {
     fun guardarProgreso(titulo: String, capitulo: String, pagina: Int = 0, isColor: Boolean = false) {
         data.historial[histKey(titulo, isColor)] = capitulo
         data.progresoPagina["${titulo}___${capKey(capitulo, isColor)}"] = pagina
+        guardar()
+    }
+
+    fun actualizarHistorial(titulo: String, capitulo: String, isColor: Boolean = false) {
+        val key = if (isColor) "${titulo}___COLOR" else titulo
+        data.historial[key] = capitulo
         guardar()
     }
 

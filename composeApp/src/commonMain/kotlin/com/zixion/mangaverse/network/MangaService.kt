@@ -115,7 +115,10 @@ class MangaService {
             val url = determinarUrlBase()
             val responseText = client.get("${url}mangas").bodyAsText()
             ZipHelper.guardarTexto("mangas_list.json", responseText)
-            UserManager.actualizarTimestampCache()
+
+            // BORRA O COMENTA ESTA LÍNEA:
+            // UserManager.actualizarTimestampCache()
+
             val nombres: List<String> = globalJson.decodeFromString(responseText)
             return@withContext nombres.map { Manga(titulo = it.replace("_", " "), urlPortada = "${url}mangas/$it/portada") }
         } catch (e: Exception) {
