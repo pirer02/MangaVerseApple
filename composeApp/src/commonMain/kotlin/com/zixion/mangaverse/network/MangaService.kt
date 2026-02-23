@@ -169,15 +169,24 @@ class MangaService {
         } catch (e: Exception) { false }
     }
 
-    suspend fun obtenerCapitulos(mangaNombre: String, isColor: Boolean): List<String> = withContext(Dispatchers.IO) {
+    suspend fun obtenerCapitulos(mangaNombre: String, isColor: Boolean, forceRefresh: Boolean = false): List<String> = withContext(Dispatchers.IO) {
         val id = mangaNombre.replace(" ", "_")
         val tipo = if (isColor) "color" else "normal"
         val cached = ZipHelper.leerTexto("caps_${id}_${tipo}.json")
         val isCacheExpirada = UserManager.isCacheExpired()
 
-        if (cached != null && !isCacheExpirada) {
-            try { return@withContext globalJson.decodeFromString(cached) } catch(e: Exception) {}
+        // 1. Añadimos la validación de forceRefresh y de lista.isNotEmpty()
+        if (!forceRefresh && cached != null && !isCacheExpirada) {
+            try {
+                val lista = globalJson.decodeFromString<List<String>>(cached)
+                // 2. Solo usamos la caché si realmente tiene capítulos guardados
+                if (lista.isNotEmpty()) {
+                    return@withContext lista
+                }
+            } catch(e: Exception) {}
         }
+
+
 
         try {
             val url = determinarUrlBase()

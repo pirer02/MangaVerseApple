@@ -6,8 +6,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -15,6 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,12 +42,16 @@ import coil3.compose.AsyncImage
 import com.zixion.mangaverse.models.Manga
 import com.zixion.mangaverse.network.MangaService
 import com.zixion.mangaverse.network.UserManager
+import kotlinx.coroutines.launch
 
 data class CapitulosScreen(val mangaInicial: Manga) : Screen {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
+        val scope = rememberCoroutineScope()
+        val listState = rememberLazyListState()
+
         val navigator = LocalNavigator.current
         val servicio = remember { MangaService() }
 
@@ -84,6 +93,12 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
             }
         }
 
+        // NUEVO: Aseguramos que la lista suba al principio de forma fiable
+        // tanto al cambiar el orden como al escribir en el buscador
+        LaunchedEffect(ordenInverso, textoBusqueda) {
+            listState.scrollToItem(0)
+        }
+
         val capitulosFiltrados = remember(textoBusqueda, listaCapitulos, ordenInverso) {
             val filtrados = if (textoBusqueda.isBlank()) listaCapitulos
             else listaCapitulos.filter { it.contains(textoBusqueda, ignoreCase = true) }
@@ -109,8 +124,11 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
                         Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 50.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
                             AsyncImage(model = mangaCompleto.urlPortada, contentDescription = null, modifier = Modifier.width(90.dp).height(130.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                             Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(mangaCompleto.titulo, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, lineHeight = 24.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+
+                            Column(modifier = Modifier.height(130.dp)) {
+                                Box(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                                    Text(mangaCompleto.titulo, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, lineHeight = 24.sp)
+                                }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(color = colorEstado, shape = RoundedCornerShape(4.dp), modifier = Modifier.padding(end = 8.dp)) {
@@ -123,6 +141,28 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
                     }
 
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+
+                        if (mangaCompleto.generos.isNotEmpty()) {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(mangaCompleto.generos) { genero ->
+                                    Surface(
+                                        color = Color.DarkGray.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Text(
+                                            text = genero.trim(),
+                                            color = Color.LightGray,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         Column(modifier = Modifier.animateContentSize()) { Text(text = mangaCompleto.sinopsis, color = Color.LightGray, fontSize = 14.sp, lineHeight = 20.sp, maxLines = if (sinopsisExpandida) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis) }
                         Text(text = if (sinopsisExpandida) "Mostrar menos" else "Mostrar todo...", color = Color(0xFFE50914), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp).clickable { sinopsisExpandida = !sinopsisExpandida })
 
@@ -137,6 +177,16 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
                             Text("Capítulos: ${capitulosFiltrados.size}", color = Color.White, fontWeight = FontWeight.Bold)
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        cargando = true
+                                        listaCapitulos = servicio.obtenerCapitulos(mangaInicial.titulo, modoColorActivo, forceRefresh = true)
+                                        cargando = false
+                                    }
+                                }) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Actualizar Capítulos", tint = Color.Gray)
+                                }
+
                                 val tieneProgreso = remember(refreshTrigger) { UserManager.tieneCapitulosLeidos(mangaCompleto.titulo) }
 
                                 if (tieneProgreso) {
@@ -145,6 +195,7 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
                                     }
                                 }
 
+                                // Hemos quitado de aquí el scrollToItem porque ahora lo maneja el LaunchedEffect de arriba
                                 TextButton(onClick = { ordenInverso = !ordenInverso }) {
                                     Text(if (ordenInverso) "Más nuevos" else "Más viejos", color = Color.Gray, fontSize = 12.sp)
                                     Spacer(Modifier.width(4.dp))
@@ -154,7 +205,7 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
                         }
                     }
 
-                    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 80.dp)) {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 80.dp)) {
                         if (cargando) {
                             item { Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.Red) } }
                         } else {

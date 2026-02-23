@@ -3,11 +3,15 @@ package com.zixion.mangaverse.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -61,6 +65,16 @@ class HomeScreen : Screen {
         var dialogContinuarColor by remember { mutableStateOf<ContinuarData?>(null) }
 
         val estadoGlobal = UserManager.estadoReactivo
+
+        // ESTADOS ELEVADOS: Sobreviven a redibujados (key) y a la navegación
+        val inicioScrollState = rememberLazyListState()
+        val biblioScrollState = rememberLazyListState()
+        val explorarGridState = rememberLazyGridState()
+
+        // Filtros de Explorar
+        var explorarQuery by rememberSaveable { mutableStateOf("") }
+        var explorarFiltroGenero by rememberSaveable { mutableStateOf("Todos") }
+        var explorarFiltroEstado by rememberSaveable { mutableStateOf("Todos") }
 
         LaunchedEffect(Unit) {
             cargarDatos(servicio) { lista, continuar, categorias ->
@@ -134,6 +148,7 @@ class HomeScreen : Screen {
                         key(estadoGlobal) {
                             when(seccionActual) {
                                 Seccion.INICIO -> VistaInicio(
+                                    state = inicioScrollState,
                                     categorias = categoriasDinamicas,
                                     continuar = mangasContinuar,
                                     onToggle = { m -> toggleBiblio(m) },
@@ -158,8 +173,24 @@ class HomeScreen : Screen {
                                     },
                                     onDeleteProgress = { mangaABorrarProgreso = it }
                                 )
-                                Seccion.BIBLIOTECA -> VistaBiblioteca(listaCompleta, { m -> navigator.push(CapitulosScreen(m)) }, { m -> toggleBiblio(m) })
-                                Seccion.EXPLORAR -> VistaExplorar(listaCompleta, { m -> toggleBiblio(m) }, { m -> navigator.push(CapitulosScreen(m)) })
+                                Seccion.BIBLIOTECA -> VistaBiblioteca(
+                                    state = biblioScrollState,
+                                    lista = listaCompleta,
+                                    onClick = { m -> navigator.push(CapitulosScreen(m)) },
+                                    onToggle = { m -> toggleBiblio(m) }
+                                )
+                                Seccion.EXPLORAR -> VistaExplorar(
+                                    state = explorarGridState,
+                                    lista = listaCompleta,
+                                    query = explorarQuery,
+                                    onQueryChange = { explorarQuery = it },
+                                    filtroGenero = explorarFiltroGenero,
+                                    onFiltroGeneroChange = { explorarFiltroGenero = it },
+                                    filtroEstado = explorarFiltroEstado,
+                                    onFiltroEstadoChange = { explorarFiltroEstado = it },
+                                    onToggle = { m -> toggleBiblio(m) },
+                                    onClick = { m -> navigator.push(CapitulosScreen(m)) }
+                                )
                             }
                         }
                     }
@@ -299,6 +330,20 @@ class HomeScreen : Screen {
         val todosBasicos = servicio.obtenerMangas()
         val todosCompletos = todosBasicos.map { async { servicio.obtenerInfoManga(it) } }.awaitAll()
 
+        // --- NUEVO BLOQUE DE DESCARGA EN LOTES ---
+        if (cacheEstabaExpirada) {
+            todosCompletos.chunked(5).forEach { lote ->
+                lote.map { manga ->
+                    async {
+                        try { servicio.obtenerCapitulos(manga.titulo, false) } catch (e: Exception) {}
+                        try { servicio.obtenerCapitulos(manga.titulo, true) } catch (e: Exception) {}
+                    }
+                }.awaitAll()
+            }
+            UserManager.actualizarTimestampCache()
+        }
+        // --- FIN DEL NUEVO BLOQUE ---
+
         val listaContinuarTemp = mutableListOf<ContinuarData>()
         todosCompletos.forEach { manga ->
             val ultimoNormal = UserManager.getUltimoCapitulo(manga.titulo, false)
@@ -317,9 +362,8 @@ class HomeScreen : Screen {
                         if (idx != -1) {
                             val leido = UserManager.isCapituloLeido(manga.titulo, ultimoNormal, false)
 
-                            // SOLUCIÓN 2A: Si está leído y es el último disponible, lo ignoramos.
                             if (leido && idx >= capsNormal.size - 1) {
-                                // No hacemos nada, scoreNormal se queda en -1
+                                // No hacemos nada
                             } else {
                                 scoreNormal = (idx * 2) + if (leido) 1 else 0
                                 val nextNormalIdx = if (leido && idx < capsNormal.size - 1) idx + 1 else idx
@@ -340,12 +384,11 @@ class HomeScreen : Screen {
                             val leido = UserManager.isCapituloLeido(manga.titulo, ultimoColor, true)
                             val idxInColorList = capsColor.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
 
-                            // SOLUCIÓN 2B: Verificamos si no quedan capítulos a color ni normales
                             val noHayMasColor = idxInColorList == -1 || idxInColorList >= capsColor.size - 1
                             val noHayMasNormal = idxMasterDeColor >= capsNormal.size - 1
 
                             if (leido && noHayMasColor && noHayMasNormal) {
-                                // Fin del manga en su totalidad, scoreColor se queda en -1
+                                // Fin del manga
                             } else {
                                 scoreColor = (idxMasterDeColor * 2) + if (leido) 1 else 0
 
@@ -406,17 +449,13 @@ class HomeScreen : Screen {
             categoriasGeneradas.add(CategoriaManga("Descubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
         }
 
-        // 2. Al final de la función, si la caché estaba expirada, AHORA SÍ reiniciamos el reloj
-        if (cacheEstabaExpirada) {
-            UserManager.actualizarTimestampCache()
-        }
-
         onResult(todosCompletos, listaContinuarTemp, categoriasGeneradas)
     }
 }
 
 @Composable
 fun VistaInicio(
+    state: LazyListState,
     categorias: List<CategoriaManga>,
     continuar: List<ContinuarData>,
     onToggle: (Manga) -> Unit,
@@ -424,7 +463,7 @@ fun VistaInicio(
     onContinueClick: (ContinuarData) -> Unit,
     onDeleteProgress: (Manga) -> Unit
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(bottom = 30.dp)) {
+    LazyColumn(state = state, modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(bottom = 30.dp)) {
         if (continuar.isNotEmpty()) {
             item {
                 Text("Continuar Leyendo", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
@@ -461,10 +500,10 @@ fun FilaGenero(titulo: String, lista: List<Manga>, onToggle: (Manga) -> Unit, on
 }
 
 @Composable
-fun VistaBiblioteca(lista: List<Manga>, onClick: (Manga) -> Unit, onToggle: (Manga) -> Unit) {
+fun VistaBiblioteca(state: LazyListState, lista: List<Manga>, onClick: (Manga) -> Unit, onToggle: (Manga) -> Unit) {
     val enBiblio = lista.filter { UserManager.enBiblioteca(it.titulo) }
 
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
+    LazyColumn(state = state, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
         item { Text("Guardados", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp)) }
         if (enBiblio.isEmpty()) {
             item { Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { Text("Tu biblioteca está vacía.", color = Color.Gray) } }
@@ -478,17 +517,126 @@ fun VistaBiblioteca(lista: List<Manga>, onClick: (Manga) -> Unit, onToggle: (Man
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VistaExplorar(lista: List<Manga>, onToggle: (Manga) -> Unit, onClick: (Manga) -> Unit) {
-    var query by rememberSaveable { mutableStateOf("") }
+fun VistaExplorar(
+    state: LazyGridState,
+    lista: List<Manga>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    filtroGenero: String,
+    onFiltroGeneroChange: (String) -> Unit,
+    filtroEstado: String,
+    onFiltroEstadoChange: (String) -> Unit,
+    onToggle: (Manga) -> Unit,
+    onClick: (Manga) -> Unit
+) {
+    val opcionesGeneros = listOf("Todos", "Shonen", "Accion", "Aventura", "Comedia", "Drama", "Seinen", "Romance", "Isekai", "Deporte", "Chanbara")
+    val opcionesEstados = listOf("Todos", "En Emisión", "Terminado")
+
+    // NUEVO: Reseteamos el scroll al principio cuando cambian los filtros
+    LaunchedEffect(query, filtroGenero, filtroEstado) {
+        state.scrollToItem(0)
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
-            value = query, onValueChange = { query = it }, placeholder = { Text("Buscar por título...", color = Color.Gray) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = { Text("Buscar por título...", color = Color.Gray) },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = Color(0xFFE50914), unfocusedBorderColor = Color.DarkGray),
-            modifier = Modifier.fillMaxWidth().padding(16.dp), singleLine = true
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp), singleLine = true
         )
-        val filtrados = lista.filter { it.titulo.contains(query, ignoreCase = true) }
-        LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 110.dp), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+            // Dropdown de Género
+            var expandidoGenero by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandidoGenero,
+                onExpandedChange = { expandidoGenero = it },
+                modifier = Modifier.weight(1f)
+            ) {
+                OutlinedTextField(
+                    value = filtroGenero,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Género", color = Color.Gray, fontSize = 12.sp) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandidoGenero) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFFE50914), unfocusedBorderColor = Color.DarkGray
+                    ),
+                    modifier = Modifier.menuAnchor(),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                )
+                ExposedDropdownMenu(
+                    expanded = expandidoGenero,
+                    onDismissRequest = { expandidoGenero = false },
+                    modifier = Modifier.background(Color(0xFF1E1E1E))
+                ) {
+                    opcionesGeneros.forEach { seleccion ->
+                        DropdownMenuItem(
+                            text = { Text(seleccion, color = Color.White) },
+                            onClick = { onFiltroGeneroChange(seleccion); expandidoGenero = false }
+                        )
+                    }
+                }
+            }
+
+            // Dropdown de Estado
+            var expandidoEstado by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandidoEstado,
+                onExpandedChange = { expandidoEstado = it },
+                modifier = Modifier.weight(1f)
+            ) {
+                OutlinedTextField(
+                    value = filtroEstado,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Estado", color = Color.Gray, fontSize = 12.sp) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandidoEstado) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFFE50914), unfocusedBorderColor = Color.DarkGray
+                    ),
+                    modifier = Modifier.menuAnchor(),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                )
+                ExposedDropdownMenu(
+                    expanded = expandidoEstado,
+                    onDismissRequest = { expandidoEstado = false },
+                    modifier = Modifier.background(Color(0xFF1E1E1E))
+                ) {
+                    opcionesEstados.forEach { seleccion ->
+                        DropdownMenuItem(
+                            text = { Text(seleccion, color = Color.White) },
+                            onClick = { onFiltroEstadoChange(seleccion); expandidoEstado = false }
+                        )
+                    }
+                }
+            }
+        }
+
+        val filtrados = lista.filter { manga ->
+            val coincideTexto = manga.titulo.contains(query, ignoreCase = true)
+
+            val coincideGenero = if (filtroGenero == "Todos") true else {
+                manga.generos.any { it.trim().equals(filtroGenero, ignoreCase = true) }
+            }
+
+            val coincideEstado = when (filtroEstado) {
+                "Terminado" -> manga.estado.contains("finalizado", true) || manga.estado.contains("terminado", true)
+                "En Emisión" -> !manga.estado.contains("finalizado", true) && !manga.estado.contains("terminado", true)
+                else -> true
+            }
+
+            coincideTexto && coincideGenero && coincideEstado
+        }
+
+        LazyVerticalGrid(state = state, columns = GridCells.Adaptive(minSize = 110.dp), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(filtrados) { manga -> MangaCard(manga = manga, enBiblioteca = UserManager.enBiblioteca(manga.titulo), onToggleLibrary = { onToggle(manga) }, onClick = { onClick(manga) }) }
         }
     }
