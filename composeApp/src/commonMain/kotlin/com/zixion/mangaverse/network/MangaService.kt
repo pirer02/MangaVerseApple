@@ -117,7 +117,7 @@ class MangaService {
             ZipHelper.guardarTexto("mangas_list.json", responseText)
 
             // BORRA O COMENTA ESTA LÍNEA:
-            // UserManager.actualizarTimestampCache()
+            UserManager.actualizarTimestampCache()
 
             val nombres: List<String> = globalJson.decodeFromString(responseText)
             return@withContext nombres.map { Manga(titulo = it.replace("_", " "), urlPortada = "${url}mangas/$it/portada") }

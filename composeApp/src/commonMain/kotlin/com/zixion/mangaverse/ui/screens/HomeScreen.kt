@@ -330,18 +330,6 @@ class HomeScreen : Screen {
         val todosBasicos = servicio.obtenerMangas()
         val todosCompletos = todosBasicos.map { async { servicio.obtenerInfoManga(it) } }.awaitAll()
 
-        // --- NUEVO BLOQUE DE DESCARGA EN LOTES ---
-        if (cacheEstabaExpirada) {
-            todosCompletos.chunked(5).forEach { lote ->
-                lote.map { manga ->
-                    async {
-                        try { servicio.obtenerCapitulos(manga.titulo, false) } catch (e: Exception) {}
-                        try { servicio.obtenerCapitulos(manga.titulo, true) } catch (e: Exception) {}
-                    }
-                }.awaitAll()
-            }
-            UserManager.actualizarTimestampCache()
-        }
         // --- FIN DEL NUEVO BLOQUE ---
 
         val listaContinuarTemp = mutableListOf<ContinuarData>()
