@@ -425,17 +425,33 @@ class HomeScreen : Screen {
             }
         }
 
-        val generosUnicos = todosCompletos.flatMap { it.generos }.map { it.trim() }.filter { it.isNotEmpty() }.toSet().toList()
+        val generosPermitidos = listOf("Shonen", "Accion", "Aventura", "Comedia", "Drama", "Seinen", "Romance", "Isekai", "Deporte", "Chanbara")
+
+
+        val generosValidos = generosPermitidos.filter { permitido ->
+            todosCompletos.any { manga ->
+                manga.generos.any { g -> g.equals(permitido, ignoreCase = true)}
+            }
+        }
+
         val categoriasGeneradas = mutableListOf<CategoriaManga>()
 
-        if (generosUnicos.isNotEmpty()) {
-            generosUnicos.shuffled().take(minOf(4, generosUnicos.size)).forEach { genero ->
-                val mangasDelGenero = todosCompletos.filter { it.generos.any { g -> g.equals(genero, true) } }.shuffled()
-                if (mangasDelGenero.isNotEmpty()) categoriasGeneradas.add(CategoriaManga("Lo mejor en $genero", mangasDelGenero))
+        if (generosValidos.isNotEmpty()){
+            generosValidos.shuffled().take(minOf(10, generosValidos.size)).forEach { genero ->
+
+                val mangasDelGenero = todosCompletos
+                    .filter { it.generos.any { g -> g.equals(genero, ignoreCase = true)} }
+                    .shuffled()
+                    .take(24)
+
+                if (mangasDelGenero.isNotEmpty()){
+                    categoriasGeneradas.add(CategoriaManga("Lo mejor en $genero", mangasDelGenero))
+                }
             }
         } else {
-            categoriasGeneradas.add(CategoriaManga("Descubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
+            categoriasGeneradas.add(CategoriaManga("Descrubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
         }
+
 
         onResult(todosCompletos, listaContinuarTemp, categoriasGeneradas)
     }
