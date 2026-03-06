@@ -42,7 +42,8 @@ class MangaService {
 
     companion object {
         private const val IP_LOCAL = "oculto"
-        private const val IP_PUBLICA = "http://95.61.154.61:5000/"
+        // Aquí ya está puesto tu dominio real de DuckDNS
+        private const val IP_PUBLICA = "oculto"
         @Volatile private var urlActiva: String? = null
     }
 

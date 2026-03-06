@@ -71,6 +71,10 @@ data class LectorCapituloScreen(
         var capituloCargado by rememberSaveable { mutableStateOf("") }
         var uiVisible by rememberSaveable { mutableStateOf(true) }
 
+        // Variables añadidas para conectar el Slider con la lista de imágenes de forma segura
+        var paginaActualUI by rememberSaveable { mutableIntStateOf(0) }
+        var accionScroll by remember { mutableStateOf<Int?>(null) }
+
         LaunchedEffect(capituloActual) {
             if (capituloCargado != capituloActual || paginas.isEmpty()) {
                 cargando = true
@@ -96,8 +100,24 @@ data class LectorCapituloScreen(
                     enter = slideInVertically(initialOffsetY = { -it }),
                     exit = slideOutVertically(targetOffsetY = { -it })
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.8f)).statusBarsPadding()) {
-                        TopBarLector(titulo = capituloActual, esColor = esColor, onBack = { navigator?.pop() })
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.8f)).statusBarsPadding()
+                    ) {
+                        // Actualizado para incluir la navegación de capítulos
+                        TopBarLector(
+                            titulo = capituloActual,
+                            esColor = esColor,
+                            hayAnterior = hayAnteriorHistoria,
+                            haySiguiente = haySiguienteHistoria,
+                            onAnterior = {
+                                if (hayAnteriorHistoria) capituloActual = listaTodosCapitulos[indexActual - 1]
+                            },
+                            onSiguiente = {
+                                if (haySiguienteHistoria) capituloActual = listaTodosCapitulos[indexActual + 1]
+                            },
+                            onBack = { navigator?.pop() }
+                        )
                     }
                 }
             },
@@ -107,12 +127,17 @@ data class LectorCapituloScreen(
                     enter = slideInVertically(initialOffsetY = { it }),
                     exit = slideOutVertically(targetOffsetY = { it })
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.9f)).navigationBarsPadding()) {
-                        BottomBarMejorada(
-                            hayAnterior = hayAnteriorHistoria,
-                            haySiguiente = haySiguienteHistoria,
-                            onAnterior = { if (hayAnteriorHistoria) capituloActual = listaTodosCapitulos[indexActual - 1] },
-                            onSiguiente = { if (haySiguienteHistoria) capituloActual = listaTodosCapitulos[indexActual + 1] }
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.9f)).navigationBarsPadding()
+                    ) {
+                        // Cambiado a la nueva barra de progreso con el cursor
+                        BarraProgresoInferior(
+                            paginaActual = paginaActualUI,
+                            totalPaginas = paginas.size,
+                            onPageChange = { nuevaPagina ->
+                                accionScroll = nuevaPagina
+                            }
                         )
                     }
                 }
@@ -125,13 +150,21 @@ data class LectorCapituloScreen(
                     .clipToBounds()
             ) {
                 if (cargando) {
-                    CircularProgressIndicator(color = Color.Red, modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(
+                        color = Color.Red,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 } else if (paginas.isEmpty()) {
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(50.dp))
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(50.dp)
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("No se pudieron cargar las imágenes", color = Color.Gray)
                     }
@@ -141,13 +174,35 @@ data class LectorCapituloScreen(
 
                     key(manga.titulo, capituloActual) {
                         val nombreLimpio = capituloActual.replace(".cbz", "").replace(".zip", "")
-                        val paginaGuardada = remember { UserManager.getPaginaGuardada(manga.titulo, nombreLimpio, esColor) }
-                        val estaLeido = remember { UserManager.isCapituloLeido(manga.titulo, nombreLimpio, esColor) }
+                        val paginaGuardada = remember {
+                            UserManager.getPaginaGuardada(
+                                manga.titulo,
+                                nombreLimpio,
+                                esColor
+                            )
+                        }
+                        val estaLeido = remember {
+                            UserManager.isCapituloLeido(
+                                manga.titulo,
+                                nombreLimpio,
+                                esColor
+                            )
+                        }
 
-                        val initialIndex = if (!estaLeido && paginaGuardada in paginas.indices) paginaGuardada else 0
+                        val initialIndex =
+                            if (!estaLeido && paginaGuardada in paginas.indices) paginaGuardada else 0
 
-                        val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+                        val listState =
+                            rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
                         var ultimaPaginaConocida by remember { mutableIntStateOf(initialIndex) }
+
+                        // Escucha si el usuario ha tocado el slider para mover la lista a esa página
+                        LaunchedEffect(accionScroll) {
+                            accionScroll?.let { page ->
+                                listState.scrollToItem(page)
+                                accionScroll = null
+                            }
+                        }
 
                         // MAGIA: Esto obliga al botón atrás a leer siempre la página REAL, pase lo que pase
                         val paginaParaGuardar by rememberUpdatedState(ultimaPaginaConocida)
@@ -155,13 +210,25 @@ data class LectorCapituloScreen(
                         LaunchedEffect(listState) {
                             snapshotFlow { listState.firstVisibleItemIndex }
                                 .collectLatest { index ->
+                                    paginaActualUI = index // Actualiza la posición del Slider visualmente
                                     ultimaPaginaConocida = index
                                     delay(500)
-                                    UserManager.guardarProgreso(manga.titulo, nombreLimpio, index, esColor)
+                                    UserManager.guardarProgreso(
+                                        manga.titulo,
+                                        nombreLimpio,
+                                        index,
+                                        esColor
+                                    )
 
-                                    val ultimaVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                    val ultimaVisible =
+                                        listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+                                            ?: 0
                                     if (ultimaVisible >= paginas.size - 1) {
-                                        UserManager.marcarCapituloComoLeido(manga.titulo, nombreLimpio, esColor)
+                                        UserManager.marcarCapituloComoLeido(
+                                            manga.titulo,
+                                            nombreLimpio,
+                                            esColor
+                                        )
                                     }
                                 }
                         }
@@ -169,7 +236,12 @@ data class LectorCapituloScreen(
                         // SALVAVIDAS: Usa la página actualizada al salir de la pantalla
                         DisposableEffect(Unit) {
                             onDispose {
-                                UserManager.guardarProgreso(manga.titulo, nombreLimpio, paginaParaGuardar, esColor)
+                                UserManager.guardarProgreso(
+                                    manga.titulo,
+                                    nombreLimpio,
+                                    paginaParaGuardar,
+                                    esColor
+                                )
                             }
                         }
 
@@ -192,7 +264,8 @@ data class LectorCapituloScreen(
                                             val event = awaitPointerEvent()
                                             val zoom = event.calculateZoom()
                                             val pan = event.calculatePan()
-                                            val centroid = event.calculateCentroid(useCurrent = false)
+                                            val centroid =
+                                                event.calculateCentroid(useCurrent = false)
 
                                             val isMultiTouch = event.changes.size > 1
 
@@ -241,7 +314,8 @@ data class LectorCapituloScreen(
                                         translationX = offsetX,
                                         transformOrigin = TransformOrigin.Center
                                     ),
-                                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 40.dp)
+                                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
+
                             ) {
                                 items(paginas, key = { it }) { rutaPagina ->
                                     val request = remember(rutaPagina, context) {
@@ -265,10 +339,18 @@ data class LectorCapituloScreen(
                                         onError = { isLoaded = true },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .then(if (isLoaded) Modifier else Modifier.aspectRatio(0.71f)),
+                                            .then(
+                                                if (isLoaded) Modifier else Modifier.aspectRatio(
+                                                    0.71f
+                                                )
+                                            ),
                                         contentScale = ContentScale.FillWidth,
                                         filterQuality = FilterQuality.High
                                     )
+                                }
+                                item {
+                                    val extraHeight = if (scale > 1f) (heightPx * (scale - 1f) / (2f * scale)) else 0f
+                                    Spacer(modifier = Modifier.fillMaxWidth().height(with(androidx.compose.ui.platform.LocalDensity.current) { extraHeight.toDp() }))
                                 }
                             }
                         }
@@ -277,28 +359,103 @@ data class LectorCapituloScreen(
             }
         }
     }
-}
 
-@Composable
-fun TopBarLector(titulo: String, esColor: Boolean, onBack: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás", tint = Color.White) }
-        Spacer(modifier = Modifier.width(8.dp))
-        Column {
-            Text(titulo.replace(".zip", "").replace(".cbz", ""), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (esColor) Text("Modo Color 🎨", color = Color(0xFFE50914), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    @Composable
+    fun TopBarLector(
+        titulo: String,
+        esColor: Boolean,
+        hayAnterior: Boolean,
+        haySiguiente: Boolean,
+        onAnterior: () -> Unit,
+        onSiguiente: () -> Unit,
+        onBack: () -> Unit
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Atrás",
+                        tint = Color.White
+                    )
+                }
+                Column {
+                    Text(
+                        titulo.replace(".zip", "").replace(".cbz", ""),
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (esColor) Text(
+                        "Modo Color 🎨",
+                        color = Color(0xFFE50914),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            // Botones de navegación movidos aquí arriba
+            Row {
+                Button(
+                    onClick = onAnterior,
+                    enabled = hayAnterior,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333), disabledContainerColor = Color(0xFF222222)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Anterior", fontSize = 11.sp)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = onSiguiente,
+                    enabled = haySiguiente,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914), disabledContainerColor = Color(0xFF222222)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text("Siguiente", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(14.dp))
+                }
+            }
         }
     }
-}
 
-@Composable
-fun BottomBarMejorada(hayAnterior: Boolean, haySiguiente: Boolean, onAnterior: () -> Unit, onSiguiente: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Button(onClick = onAnterior, enabled = hayAnterior, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333), disabledContainerColor = Color(0xFF222222)), shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(8.dp)); Text("Anterior", fontSize = 12.sp)
-        }
-        Button(onClick = onSiguiente, enabled = haySiguiente, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914), disabledContainerColor = Color(0xFF222222)), shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
-            Text("Siguiente", fontSize = 12.sp, fontWeight = FontWeight.Bold); Spacer(modifier = Modifier.width(8.dp)); Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+    // Nueva función para el Slider de navegación de páginas
+    @Composable
+    fun BarraProgresoInferior(paginaActual: Int, totalPaginas: Int, onPageChange: (Int) -> Unit) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Slider(
+                value = paginaActual.toFloat(),
+                onValueChange = { onPageChange(it.toInt()) },
+                valueRange = 0f..(if (totalPaginas > 1) (totalPaginas - 1).toFloat() else 0f),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.Red,
+                    activeTrackColor = Color.Red,
+                    inactiveTrackColor = Color.Gray
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "${if (totalPaginas > 0) paginaActual + 1 else 0} / $totalPaginas",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
