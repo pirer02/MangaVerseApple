@@ -130,4 +130,6 @@ object UserManager {
     }
 
     fun forzarRecomposicion() { estadoReactivo++ }
+
+    fun getBiblioteca(): List<String> = data.biblioteca.toList()
 }

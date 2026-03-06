@@ -35,6 +35,12 @@ kotlin {
 
             // Motor de Internet para Android
             implementation("io.ktor:ktor-client-okhttp:2.3.12")
+
+            // 1. Dependencias de WorkManager (Kotlin + Coroutines support)
+            implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+            // 2. Integración de Koin con WorkManager
+            implementation("io.insert-koin:koin-androidx-workmanager:3.5.3")
         }
 
         commonMain.dependencies {
@@ -68,6 +74,9 @@ kotlin {
 
             // 4. Sistema de archivos multiplataforma (Okio)
             implementation("com.squareup.okio:okio:3.9.0")
+
+
+
         }
 
         commonTest.dependencies {
