@@ -6,8 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A6DAE7E22F5D9D5900BB1770 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A6DAE7E12F5D9D5900BB1770 /* FirebaseAuth */; };
+		A6DAE7E42F5D9D5900BB1770 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A6DAE7E32F5D9D5900BB1770 /* FirebaseFirestore */; };
+		A6DAE7E72F5DA20100BB1770 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A6DAE7E62F5DA20100BB1770 /* GoogleSignIn */; };
+		A6DAE7E92F5DA20100BB1770 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A6DAE7E82F5DA20100BB1770 /* GoogleSignInSwift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		409B7A1C646791FE3EBABF68 /* MangaVerse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MangaVerse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		409B7A1C646791FE3EBABF68 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -41,6 +48,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A6DAE7E22F5D9D5900BB1770 /* FirebaseAuth in Frameworks */,
+				A6DAE7E42F5D9D5900BB1770 /* FirebaseFirestore in Frameworks */,
+				A6DAE7E72F5DA20100BB1770 /* GoogleSignIn in Frameworks */,
+				A6DAE7E92F5DA20100BB1770 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -59,7 +70,7 @@
 		46B6E8B783B00F48DF542593 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				409B7A1C646791FE3EBABF68 /* MangaVerse.app */,
+				409B7A1C646791FE3EBABF68 /* iosApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -85,9 +96,13 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				A6DAE7E12F5D9D5900BB1770 /* FirebaseAuth */,
+				A6DAE7E32F5D9D5900BB1770 /* FirebaseFirestore */,
+				A6DAE7E62F5DA20100BB1770 /* GoogleSignIn */,
+				A6DAE7E82F5DA20100BB1770 /* GoogleSignInSwift */,
 			);
 			productName = iosApp;
-			productReference = 409B7A1C646791FE3EBABF68 /* MangaVerse.app */;
+			productReference = 409B7A1C646791FE3EBABF68 /* iosApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -114,6 +129,10 @@
 			);
 			mainGroup = 32A25A219A78EF75A418A76D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A6DAE7E02F5D9D5900BB1770 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				A6DAE7E52F5DA20100BB1770 /* XCRemoteSwiftPackageReference "GoogleSigNIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 46B6E8B783B00F48DF542593 /* Products */;
 			projectDirPath = "";
@@ -238,6 +257,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "\"MangaVerse necesita conectarse al servidor local\"";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -247,6 +267,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.zixion.mangaverse.iosApp;
+				PRODUCT_NAME = iosApp;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -331,6 +353,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "\"MangaVerse necesita conectarse al servidor local\"";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -340,6 +363,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.zixion.mangaverse.iosApp;
+				PRODUCT_NAME = iosApp;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -368,6 +393,48 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A6DAE7E02F5D9D5900BB1770 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.10.0;
+			};
+		};
+		A6DAE7E52F5DA20100BB1770 /* XCRemoteSwiftPackageReference "GoogleSigNIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSigNIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A6DAE7E12F5D9D5900BB1770 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6DAE7E02F5D9D5900BB1770 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		A6DAE7E32F5D9D5900BB1770 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6DAE7E02F5D9D5900BB1770 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		A6DAE7E62F5DA20100BB1770 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6DAE7E52F5DA20100BB1770 /* XCRemoteSwiftPackageReference "GoogleSigNIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		A6DAE7E82F5DA20100BB1770 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6DAE7E52F5DA20100BB1770 /* XCRemoteSwiftPackageReference "GoogleSigNIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 75CF61944EEC23B3BA5CFB1F /* Project object */;
 }
