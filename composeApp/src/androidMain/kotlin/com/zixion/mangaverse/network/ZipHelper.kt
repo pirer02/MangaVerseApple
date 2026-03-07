@@ -7,6 +7,7 @@ import java.util.zip.ZipFile
 
 object AndroidContext {
     lateinit var context: Context
+    var activity: androidx.activity.ComponentActivity? = null // AÑADE ESTA LÍNEA
 }
 
 actual object ZipHelper {

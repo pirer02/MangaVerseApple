@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import com.zixion.mangaverse.getCurrentTimeMillis
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 @Serializable
 data class UserData(
@@ -21,6 +23,7 @@ object UserManager {
     private const val FILE_NAME = "user_data_v2.json"
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private var data: UserData = UserData()
+    private val authManager = AuthManager() // LÍNEA NUEVA
 
     var estadoReactivo by mutableStateOf(0)
         private set
@@ -39,6 +42,13 @@ object UserManager {
         val texto = json.encodeToString(data)
         ZipHelper.guardarTexto(FILE_NAME, texto)
         estadoReactivo++
+
+        // --- LÍNEAS NUEVAS: Subir a la nube silenciosamente ---
+        if (authManager.obtenerUsuarioActual() != null) {
+            GlobalScope.launch {
+                authManager.guardarDatosEnNube(texto)
+            }
+        }
     }
 
     fun borrarTodoDeFabrica() {
@@ -132,4 +142,21 @@ object UserManager {
     fun forzarRecomposicion() { estadoReactivo++ }
 
     fun getBiblioteca(): List<String> = data.biblioteca.toList()
+
+
+    suspend fun sincronizarDesdeNube() {
+        val textoNube = authManager.cargarDatosDeNube()
+        if (textoNube != null) {
+            try {
+                // Sobrescribimos los datos locales con los de la nube
+                data = json.decodeFromString(textoNube)
+                ZipHelper.guardarTexto(FILE_NAME, textoNube)
+                estadoReactivo++
+            } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            // Es un usuario nuevo en la nube, subimos su progreso local actual
+            guardar()
+        }
+    }
+
 }

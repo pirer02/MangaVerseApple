@@ -9,6 +9,9 @@ plugins {
 
     // Plugin para serialización (JSON)
     kotlin("plugin.serialization") version "2.0.20"
+
+    // AÑADIDO: Plugin de Google Services para Firebase (¡SOLO ESTA LÍNEA AQUÍ!)
+    id("com.google.gms.google-services")
 }
 
 kotlin {
@@ -41,9 +44,29 @@ kotlin {
 
             // 2. Integración de Koin con WorkManager
             implementation("io.insert-koin:koin-androidx-workmanager:3.5.3")
+
+            // ==========================================
+            // AÑADIDO: DEPENDENCIAS DE FIREBASE Y GOOGLE
+            // ==========================================
+            // Import the Firebase BoM
+            implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
+
+            // Firebase Analytics (Opcional, pero venía en tu ejemplo)
+            implementation("com.google.firebase:firebase-analytics")
+
+            // Firebase Authentication (NECESARIO PARA EL LOGIN)
+            implementation("com.google.firebase:firebase-auth")
+
+            // Base de datos de Firebase
+            implementation("com.google.firebase:firebase-firestore")
+
+            // Play Services Auth (NECESARIO PARA EL BOTÓN DE GOOGLE)
+            implementation("com.google.android.gms:play-services-auth:21.0.0")
+            // ==========================================
         }
 
         commonMain.dependencies {
+            // ... (tus dependencias de compose, ktor, coil, etc. se quedan igual)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)

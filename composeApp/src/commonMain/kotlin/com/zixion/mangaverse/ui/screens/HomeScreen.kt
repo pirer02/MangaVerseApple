@@ -35,6 +35,11 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.input.key.Key.Companion.R
+import com.zixion.mangaverse.network.AuthManager
+import mangaverse.composeapp.generated.resources.Res
+import mangaverse.composeapp.generated.resources.google
+import org.jetbrains.compose.resources.painterResource
 
 enum class Seccion { INICIO, BIBLIOTECA, EXPLORAR }
 enum class ModoLectura { NORMAL, COLOR, PREGUNTAR }
@@ -52,6 +57,13 @@ class HomeScreen : Screen {
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val scope = rememberCoroutineScope()
         val snackbarHostState = remember { SnackbarHostState() }
+
+        // --- NUEVAS VARIABLES DE SESIÓN ---
+        val authManager = remember { AuthManager() }
+        var usuarioActual by remember { mutableStateOf(authManager.obtenerUsuarioActual()) }
+        var mostrarDialogoCerrarSesion by remember { mutableStateOf(false) }
+        var mostrarDialogoBorrarCuenta by remember { mutableStateOf(false) }
+
 
         var seccionActual by rememberSaveable { mutableStateOf(Seccion.INICIO) }
         var listaCompleta by remember { mutableStateOf<List<Manga>>(emptyList()) }
@@ -93,35 +105,71 @@ class HomeScreen : Screen {
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
-                ModalDrawerSheet(modifier = Modifier.width(260.dp), drawerContainerColor = Color.Transparent, drawerContentColor = Color.White) {
+                ModalDrawerSheet(
+                    modifier = Modifier.width(280.dp),
+                    drawerContainerColor = Color.Transparent,
+                    drawerContentColor = Color.White
+                ) {
                     Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color(0xFF800000), Color(0xFF400000), Color.Black)))) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            Spacer(Modifier.height(30.dp))
-                            Text("MangaVerse", fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp), color = Color.White)
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.3f))
+                            Spacer(Modifier.height(40.dp))
+
+                            Text("MangaVerse", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp), color = Color.White)
+
+                            if (usuarioActual != null) {
+                                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                                    Text("Sesión iniciada como:", fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
+                                    Text(usuarioActual!!.email, fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                             Spacer(Modifier.height(16.dp))
+
+                            // Navegación
                             NavigationDrawerItem(label = { Text("Inicio") }, selected = seccionActual == Seccion.INICIO, onClick = { seccionActual = Seccion.INICIO; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Home, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
                             NavigationDrawerItem(label = { Text("Biblioteca") }, selected = seccionActual == Seccion.BIBLIOTECA, onClick = { seccionActual = Seccion.BIBLIOTECA; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.List, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
                             NavigationDrawerItem(label = { Text("Explorar") }, selected = seccionActual == Seccion.EXPLORAR, onClick = { seccionActual = Seccion.EXPLORAR; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Search, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
+
+                            if (usuarioActual != null) {
+                                Spacer(Modifier.height(24.dp))
+                                Text("CUENTA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+
+                                NavigationDrawerItem(
+                                    label = { Text("Cambiar de cuenta") },
+                                    selected = false,
+                                    onClick = { scope.launch { drawerState.close(); cargando = true; val usuario = authManager.iniciarSesionGoogle(); if (usuario != null) usuarioActual = usuario; cargando = false } },
+                                    icon = { Icon(Icons.Default.Refresh, null, modifier = Modifier.size(20.dp)) },
+                                    colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray),
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                )
+
+                                NavigationDrawerItem(
+                                    label = { Text("Cerrar Sesión") },
+                                    selected = false,
+                                    onClick = { scope.launch { drawerState.close() }; mostrarDialogoCerrarSesion = true },
+                                    icon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp)) },
+                                    colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray),
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                )
+
+                                // NUEVO BOTÓN: BORRAR CUENTA
+                                NavigationDrawerItem(
+                                    label = { Text("Eliminar Cuenta", fontWeight = FontWeight.Bold) },
+                                    selected = false,
+                                    onClick = { scope.launch { drawerState.close() }; mostrarDialogoBorrarCuenta = true },
+                                    icon = { Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(20.dp)) },
+                                    colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFFFF6B6B), unselectedIconColor = Color(0xFFFF6B6B)),
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                )
+                            }
+
                             Spacer(modifier = Modifier.weight(1f))
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.3f))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
 
-                            NavigationDrawerItem(
-                                label = { Text("Actualización Manual", fontWeight = FontWeight.Bold) },
-                                selected = false,
-                                onClick = {
-                                    scope.launch { drawerState.close() }
-                                    mostrarDialogoActualizar = true
-                                },
-                                icon = { Icon(Icons.Default.Refresh, null) },
-                                colors = NavigationDrawerItemDefaults.colors(
-                                    unselectedTextColor = Color(0xFF4DA8DA),
-                                    unselectedIconColor = Color(0xFF4DA8DA)
-                                ),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                            )
-
-                            NavigationDrawerItem(label = { Text("Borrar Datos", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close() }; mostrarDialogoBorrar = true }, icon = { Icon(Icons.Default.Delete, null) }, colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFFFF6B6B), unselectedIconColor = Color(0xFFFF6B6B)), modifier = Modifier.padding(12.dp))
+                            NavigationDrawerItem(label = { Text("Actualización Manual", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close() }; mostrarDialogoActualizar = true }, icon = { Icon(Icons.Default.Refresh, null) }, colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFF4DA8DA), unselectedIconColor = Color(0xFF4DA8DA)), modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                            NavigationDrawerItem(label = { Text("Borrar Datos Locales", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close() }; mostrarDialogoBorrar = true }, icon = { Icon(Icons.Default.Delete, null) }, colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFFFF6B6B), unselectedIconColor = Color(0xFFFF6B6B)), modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
                             Spacer(Modifier.height(20.dp))
                         }
                     }
@@ -135,6 +183,57 @@ class HomeScreen : Screen {
                         TopAppBar(
                             title = { Text(text = when(seccionActual) { Seccion.INICIO -> "Inicio"; Seccion.BIBLIOTECA -> "Mi Biblioteca"; Seccion.EXPLORAR -> "Explorar" }, color = Color.White, fontWeight = FontWeight.Bold) },
                             navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, "Menú", tint = Color.White) } },
+                            actions = {
+                                // Si NO hay usuario, mostramos el botón compuesto (Texto + Imagen)
+                                if (usuarioActual == null) {
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                cargando = true
+                                                val usuario = authManager.iniciarSesionGoogle()
+                                                if (usuario != null) {
+                                                    usuarioActual = usuario
+                                                    // 1. Descargamos de Firebase
+                                                    UserManager.sincronizarDesdeNube()
+                                                    // 2. Recargamos la interfaz
+                                                    cargarDatos(servicio) { lista, continuar, categorias ->
+                                                        listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias
+                                                    }
+                                                }
+                                                cargando = false
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            // Letras blancas en pequeño a la izquierda
+                                            Text(
+                                                text = "Vincular con",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+
+                                            // Fondo circular blanco con el logo
+                                            Surface(
+                                                shape = androidx.compose.foundation.shape.CircleShape,
+                                                color = Color.White,
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(Res.drawable.google),
+                                                    contentDescription = "Google",
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.padding(5.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                         )
                     }
@@ -314,6 +413,85 @@ class HomeScreen : Screen {
                     ) { Text("Borrar Todo") }
                 },
                 dismissButton = { TextButton(onClick = { mostrarDialogoBorrar = false }) { Text("Cancelar", color = Color.White) } }
+            )
+        }
+
+        if (mostrarDialogoCerrarSesion) {
+            AlertDialog(
+                onDismissRequest = { mostrarDialogoCerrarSesion = false },
+                title = { Text("¿Cerrar Sesión?", color = Color.White) },
+                text = { Text("Se cerrará tu sesión y se borrarán los datos locales por seguridad, pero tu biblioteca seguirá guardada en la nube para cuando vuelvas.", color = Color.LightGray) },
+                containerColor = Color(0xFF1E1E1E),
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            mostrarDialogoCerrarSesion = false
+                            authManager.cerrarSesion()
+                            usuarioActual = null
+
+                            // Borramos datos de fábrica y volvemos al inicio
+                            UserManager.borrarTodoDeFabrica()
+                            seccionActual = Seccion.INICIO
+                            cargando = true
+                            scope.launch {
+                                cargarDatos(servicio) { lista, continuar, categorias ->
+                                    listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias; cargando = false
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
+                    ) { Text("Cerrar Sesión") }
+                },
+                dismissButton = { TextButton(onClick = { mostrarDialogoCerrarSesion = false }) { Text("Cancelar", color = Color.White) } }
+            )
+        }
+
+        if (mostrarDialogoBorrarCuenta) {
+            AlertDialog(
+                onDismissRequest = { mostrarDialogoBorrarCuenta = false },
+                title = { Text("¿Eliminar cuenta permanentemente?", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Text(
+                        "Esta acción no se puede deshacer. Se borrarán todos tus datos guardados en la nube, incluyendo tu biblioteca y progreso de lectura de forma definitiva.",
+                        color = Color.LightGray
+                    )
+                },
+                containerColor = Color(0xFF1E1E1E),
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            mostrarDialogoBorrarCuenta = false
+                            cargando = true
+                            scope.launch {
+                                // 1. Llamada a Firebase para borrar la cuenta (asumiendo que authManager tiene este método)
+                                val exito = authManager.eliminarCuenta()
+
+                                if (exito) {
+                                    // 2. Limpiar datos locales por seguridad
+                                    UserManager.borrarTodoDeFabrica()
+                                    usuarioActual = null
+                                    seccionActual = Seccion.INICIO
+
+                                    // 3. Recargar datos limpios
+                                    cargarDatos(servicio) { lista, continuar, categorias ->
+                                        listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias; cargando = false
+                                    }
+                                } else {
+                                    cargando = false
+                                    snackbarHostState.showSnackbar("Error al eliminar la cuenta. Es posible que necesites re-autenticarte.")
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
+                    ) {
+                        Text("Confirmar Eliminación", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mostrarDialogoBorrarCuenta = false }) {
+                        Text("Cancelar", color = Color.White)
+                    }
+                }
             )
         }
     }

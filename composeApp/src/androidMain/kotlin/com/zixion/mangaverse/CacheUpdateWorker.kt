@@ -93,8 +93,7 @@ class CacheUpdateWorker(
         val textoResumen = if (novedades.size == 1) novedades.first() else "Tienes ${novedades.size} mangas con nuevos capítulos."
 
         val builder = NotificationCompat.Builder(appContext, MangaApplication.CANAL_ID)
-            .setSmallIcon(android.R.drawable.ic_popup_sync)
-            .setContentTitle(titulo)
+            .setSmallIcon(R.mipmap.ic_launcher)            .setContentTitle(titulo)
             .setContentText(textoResumen)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
