@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -35,13 +37,12 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.input.key.Key.Companion.R
 import com.zixion.mangaverse.network.AuthManager
 import mangaverse.composeapp.generated.resources.Res
 import mangaverse.composeapp.generated.resources.google
 import org.jetbrains.compose.resources.painterResource
 
-enum class Seccion { INICIO, BIBLIOTECA, EXPLORAR }
+enum class Seccion { INICIO, BIBLIOTECA, EXPLORAR, PERFIL }
 enum class ModoLectura { NORMAL, COLOR, PREGUNTAR }
 
 data class CategoriaManga(val titulo: String, val mangas: List<Manga>)
@@ -58,12 +59,10 @@ class HomeScreen : Screen {
         val scope = rememberCoroutineScope()
         val snackbarHostState = remember { SnackbarHostState() }
 
-        // --- NUEVAS VARIABLES DE SESIÓN ---
         val authManager = remember { AuthManager() }
         var usuarioActual by remember { mutableStateOf(authManager.obtenerUsuarioActual()) }
         var mostrarDialogoCerrarSesion by remember { mutableStateOf(false) }
         var mostrarDialogoBorrarCuenta by remember { mutableStateOf(false) }
-
 
         var seccionActual by rememberSaveable { mutableStateOf(Seccion.INICIO) }
         var listaCompleta by remember { mutableStateOf<List<Manga>>(emptyList()) }
@@ -78,12 +77,10 @@ class HomeScreen : Screen {
 
         val estadoGlobal = UserManager.estadoReactivo
 
-        // ESTADOS ELEVADOS: Sobreviven a redibujados (key) y a la navegación
         val inicioScrollState = rememberLazyListState()
         val biblioScrollState = rememberLazyListState()
         val explorarGridState = rememberLazyGridState()
 
-        // Filtros de Explorar
         var explorarQuery by rememberSaveable { mutableStateOf("") }
         var explorarFiltroGenero by rememberSaveable { mutableStateOf("Todos") }
         var explorarFiltroEstado by rememberSaveable { mutableStateOf("Todos") }
@@ -116,61 +113,31 @@ class HomeScreen : Screen {
 
                             Text("MangaVerse", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp), color = Color.White)
 
+                            // RESTAURADO: Mostrar correo en el menú lateral si hay usuario
                             if (usuarioActual != null) {
                                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                                     Text("Sesión iniciada como:", fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
                                     Text(usuarioActual!!.email, fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
                                 }
+                                Spacer(Modifier.height(12.dp))
+                            } else {
+                                Spacer(Modifier.height(24.dp))
                             }
 
-                            Spacer(Modifier.height(12.dp))
                             HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                             Spacer(Modifier.height(16.dp))
 
-                            // Navegación
+                            // Navegación Simplificada
                             NavigationDrawerItem(label = { Text("Inicio") }, selected = seccionActual == Seccion.INICIO, onClick = { seccionActual = Seccion.INICIO; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Home, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
                             NavigationDrawerItem(label = { Text("Biblioteca") }, selected = seccionActual == Seccion.BIBLIOTECA, onClick = { seccionActual = Seccion.BIBLIOTECA; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.List, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
                             NavigationDrawerItem(label = { Text("Explorar") }, selected = seccionActual == Seccion.EXPLORAR, onClick = { seccionActual = Seccion.EXPLORAR; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Search, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
 
-                            if (usuarioActual != null) {
-                                Spacer(Modifier.height(24.dp))
-                                Text("CUENTA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-
-                                NavigationDrawerItem(
-                                    label = { Text("Cambiar de cuenta") },
-                                    selected = false,
-                                    onClick = { scope.launch { drawerState.close(); cargando = true; val usuario = authManager.iniciarSesionGoogle(); if (usuario != null) usuarioActual = usuario; cargando = false } },
-                                    icon = { Icon(Icons.Default.Refresh, null, modifier = Modifier.size(20.dp)) },
-                                    colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray),
-                                    modifier = Modifier.padding(horizontal = 12.dp)
-                                )
-
-                                NavigationDrawerItem(
-                                    label = { Text("Cerrar Sesión") },
-                                    selected = false,
-                                    onClick = { scope.launch { drawerState.close() }; mostrarDialogoCerrarSesion = true },
-                                    icon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp)) },
-                                    colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray),
-                                    modifier = Modifier.padding(horizontal = 12.dp)
-                                )
-
-                                // NUEVO BOTÓN: BORRAR CUENTA
-                                NavigationDrawerItem(
-                                    label = { Text("Eliminar Cuenta", fontWeight = FontWeight.Bold) },
-                                    selected = false,
-                                    onClick = { scope.launch { drawerState.close() }; mostrarDialogoBorrarCuenta = true },
-                                    icon = { Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(20.dp)) },
-                                    colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFFFF6B6B), unselectedIconColor = Color(0xFFFF6B6B)),
-                                    modifier = Modifier.padding(horizontal = 12.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
+                            Spacer(Modifier.height(8.dp))
                             HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(8.dp))
 
-                            NavigationDrawerItem(label = { Text("Actualización Manual", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close() }; mostrarDialogoActualizar = true }, icon = { Icon(Icons.Default.Refresh, null) }, colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFF4DA8DA), unselectedIconColor = Color(0xFF4DA8DA)), modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-                            NavigationDrawerItem(label = { Text("Borrar Datos Locales", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close() }; mostrarDialogoBorrar = true }, icon = { Icon(Icons.Default.Delete, null) }, colors = NavigationDrawerItemDefaults.colors(unselectedTextColor = Color(0xFFFF6B6B), unselectedIconColor = Color(0xFFFF6B6B)), modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-                            Spacer(Modifier.height(20.dp))
+                            // Botón de Perfil en el panel
+                            NavigationDrawerItem(label = { Text("Mi Perfil") }, selected = seccionActual == Seccion.PERFIL, onClick = { seccionActual = Seccion.PERFIL; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Person, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
                         }
                     }
                 }
@@ -181,11 +148,17 @@ class HomeScreen : Screen {
                 topBar = {
                     Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(colors = listOf(Color(0xFF800000), Color.Black)))) {
                         TopAppBar(
-                            title = { Text(text = when(seccionActual) { Seccion.INICIO -> "Inicio"; Seccion.BIBLIOTECA -> "Mi Biblioteca"; Seccion.EXPLORAR -> "Explorar" }, color = Color.White, fontWeight = FontWeight.Bold) },
+                            title = {
+                                Text(text = when(seccionActual) {
+                                    Seccion.INICIO -> "Inicio"
+                                    Seccion.BIBLIOTECA -> "Mi Biblioteca"
+                                    Seccion.EXPLORAR -> "Explorar"
+                                    Seccion.PERFIL -> "Mi Perfil"
+                                }, color = Color.White, fontWeight = FontWeight.Bold)
+                            },
                             navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, "Menú", tint = Color.White) } },
                             actions = {
-                                // Si NO hay usuario, mostramos el botón compuesto (Texto + Imagen)
-                                if (usuarioActual == null) {
+                                if (usuarioActual == null && seccionActual != Seccion.PERFIL) {
                                     TextButton(
                                         onClick = {
                                             scope.launch {
@@ -193,9 +166,7 @@ class HomeScreen : Screen {
                                                 val usuario = authManager.iniciarSesionGoogle()
                                                 if (usuario != null) {
                                                     usuarioActual = usuario
-                                                    // 1. Descargamos de Firebase
                                                     UserManager.sincronizarDesdeNube()
-                                                    // 2. Recargamos la interfaz
                                                     cargarDatos(servicio) { lista, continuar, categorias ->
                                                         listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias
                                                     }
@@ -209,26 +180,9 @@ class HomeScreen : Screen {
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            // Letras blancas en pequeño a la izquierda
-                                            Text(
-                                                text = "Vincular con",
-                                                color = Color.White,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-
-                                            // Fondo circular blanco con el logo
-                                            Surface(
-                                                shape = androidx.compose.foundation.shape.CircleShape,
-                                                color = Color.White,
-                                                modifier = Modifier.size(28.dp)
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(Res.drawable.google),
-                                                    contentDescription = "Google",
-                                                    tint = Color.Unspecified,
-                                                    modifier = Modifier.padding(5.dp)
-                                                )
+                                            Text("Vincular con", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                            Surface(shape = CircleShape, color = Color.White, modifier = Modifier.size(28.dp)) {
+                                                Icon(painter = painterResource(Res.drawable.google), contentDescription = "Google", tint = Color.Unspecified, modifier = Modifier.padding(5.dp))
                                             }
                                         }
                                     }
@@ -290,6 +244,35 @@ class HomeScreen : Screen {
                                     onToggle = { m -> toggleBiblio(m) },
                                     onClick = { m -> navigator.push(CapitulosScreen(m)) }
                                 )
+                                Seccion.PERFIL -> VistaPerfil(
+                                    emailUsuario = usuarioActual?.email,
+                                    onLogin = {
+                                        scope.launch {
+                                            cargando = true
+                                            val usuario = authManager.iniciarSesionGoogle()
+                                            if (usuario != null) {
+                                                usuarioActual = usuario
+                                                UserManager.sincronizarDesdeNube()
+                                                cargarDatos(servicio) { lista, continuar, categorias ->
+                                                    listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias
+                                                }
+                                            }
+                                            cargando = false
+                                        }
+                                    },
+                                    onChangeAccount = {
+                                        scope.launch {
+                                            cargando = true
+                                            val usuario = authManager.iniciarSesionGoogle()
+                                            if (usuario != null) usuarioActual = usuario
+                                            cargando = false
+                                        }
+                                    },
+                                    onLogout = { mostrarDialogoCerrarSesion = true },
+                                    onDeleteAccount = { mostrarDialogoBorrarCuenta = true },
+                                    onManualUpdate = { mostrarDialogoActualizar = true },
+                                    onClearLocalData = { mostrarDialogoBorrar = true }
+                                )
                             }
                         }
                     }
@@ -318,7 +301,7 @@ class HomeScreen : Screen {
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
-                    ) { Text("A Color 🎨") }
+                    ) { Text("A Color \uD83C\uDFA8") }
                 },
                 dismissButton = {
                     Button(
@@ -332,7 +315,7 @@ class HomeScreen : Screen {
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
-                    ) { Text("Original 📄") }
+                    ) { Text("Original \uD83D\uDCC4") }
                 }
             )
         }
@@ -429,7 +412,6 @@ class HomeScreen : Screen {
                             authManager.cerrarSesion()
                             usuarioActual = null
 
-                            // Borramos datos de fábrica y volvemos al inicio
                             UserManager.borrarTodoDeFabrica()
                             seccionActual = Seccion.INICIO
                             cargando = true
@@ -463,16 +445,13 @@ class HomeScreen : Screen {
                             mostrarDialogoBorrarCuenta = false
                             cargando = true
                             scope.launch {
-                                // 1. Llamada a Firebase para borrar la cuenta (asumiendo que authManager tiene este método)
                                 val exito = authManager.eliminarCuenta()
 
                                 if (exito) {
-                                    // 2. Limpiar datos locales por seguridad
                                     UserManager.borrarTodoDeFabrica()
                                     usuarioActual = null
                                     seccionActual = Seccion.INICIO
 
-                                    // 3. Recargar datos limpios
                                     cargarDatos(servicio) { lista, continuar, categorias ->
                                         listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias; cargando = false
                                     }
@@ -502,13 +481,10 @@ class HomeScreen : Screen {
     ) = coroutineScope {
         UserManager.cargar()
 
-        // 1. Guardamos el estado de la caché ANTES de empezar a pedir datos
         val cacheEstabaExpirada = UserManager.isCacheExpired()
 
         val todosBasicos = servicio.obtenerMangas()
         val todosCompletos = todosBasicos.map { async { servicio.obtenerInfoManga(it) } }.awaitAll()
-
-        // --- FIN DEL NUEVO BLOQUE ---
 
         val listaContinuarTemp = mutableListOf<ContinuarData>()
         todosCompletos.forEach { manga ->
@@ -605,7 +581,6 @@ class HomeScreen : Screen {
 
         val generosPermitidos = listOf("Shonen", "Accion", "Aventura", "Comedia", "Drama", "Seinen", "Romance", "Isekai", "Deporte", "Chanbara")
 
-
         val generosValidos = generosPermitidos.filter { permitido ->
             todosCompletos.any { manga ->
                 manga.generos.any { g -> g.equals(permitido, ignoreCase = true)}
@@ -627,11 +602,153 @@ class HomeScreen : Screen {
                 }
             }
         } else {
-            categoriasGeneradas.add(CategoriaManga("Descrubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
+            categoriasGeneradas.add(CategoriaManga("Descubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
         }
 
-
         onResult(todosCompletos, listaContinuarTemp, categoriasGeneradas)
+    }
+}
+
+@Composable
+fun VistaPerfil(
+    emailUsuario: String?,
+    onLogin: () -> Unit,
+    onChangeAccount: () -> Unit,
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    onManualUpdate: () -> Unit,
+    onClearLocalData: () -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 24.dp, bottom = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            // Cabecera de Perfil
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = "Avatar de Perfil",
+                tint = Color.LightGray,
+                modifier = Modifier.size(100.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (emailUsuario != null) {
+                Text(
+                    text = emailUsuario,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Cuenta vinculada",
+                    color = Color(0xFF4DA8DA),
+                    fontSize = 14.sp
+                )
+            } else {
+                Text(
+                    text = "No has iniciado sesión",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onLogin,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(Res.drawable.google),
+                            contentDescription = "Google",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Vincular con Google", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+            HorizontalDivider(color = Color.DarkGray)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        if (emailUsuario != null) {
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("GESTIÓN DE CUENTA", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 8.dp))
+
+                    PerfilItemCard(
+                        texto = "Cambiar de cuenta",
+                        icono = Icons.Default.Refresh,
+                        onClick = onChangeAccount
+                    )
+                    PerfilItemCard(
+                        texto = "Cerrar Sesión",
+                        icono = Icons.Default.ExitToApp,
+                        onClick = onLogout
+                    )
+                    PerfilItemCard(
+                        texto = "Eliminar Cuenta Permanentemente",
+                        icono = Icons.Default.DeleteForever,
+                        colorTexto = Color(0xFFFF6B6B),
+                        onClick = onDeleteAccount
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+
+        item {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("SISTEMA Y DATOS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 8.dp))
+
+                PerfilItemCard(
+                    texto = "Forzar Actualización Manual",
+                    icono = Icons.Default.CloudSync,
+                    colorTexto = Color(0xFF4DA8DA),
+                    onClick = onManualUpdate
+                )
+                PerfilItemCard(
+                    texto = "Borrar Todos los Datos Locales",
+                    icono = Icons.Default.Delete,
+                    colorTexto = Color(0xFFFF6B6B),
+                    onClick = onClearLocalData
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PerfilItemCard(
+    texto: String,
+    icono: androidx.compose.ui.graphics.vector.ImageVector,
+    colorTexto: Color = Color.White,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(imageVector = icono, contentDescription = null, tint = colorTexto, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(text = texto, color = colorTexto, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        }
     }
 }
 
@@ -716,7 +833,6 @@ fun VistaExplorar(
     val opcionesGeneros = listOf("Todos", "Shonen", "Accion", "Aventura", "Comedia", "Drama", "Seinen", "Romance", "Isekai", "Deporte", "Chanbara")
     val opcionesEstados = listOf("Todos", "En Emisión", "Terminado")
 
-    // NUEVO: Reseteamos el scroll al principio cuando cambian los filtros
     LaunchedEffect(query, filtroGenero, filtroEstado) {
         state.scrollToItem(0)
     }
@@ -733,7 +849,6 @@ fun VistaExplorar(
 
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 
-            // Dropdown de Género
             var expandidoGenero by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = expandidoGenero,
@@ -767,7 +882,6 @@ fun VistaExplorar(
                 }
             }
 
-            // Dropdown de Estado
             var expandidoEstado by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = expandidoEstado,
