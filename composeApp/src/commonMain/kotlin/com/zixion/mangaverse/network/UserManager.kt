@@ -16,7 +16,8 @@ data class UserData(
     val historial: MutableMap<String, String> = mutableMapOf(),
     val capitulosLeidos: MutableMap<String, MutableSet<String>> = mutableMapOf(),
     var lastUpdateTimestamp: Long = 0L,
-    val progresoPagina: MutableMap<String, Int> = mutableMapOf()
+    val progresoPagina: MutableMap<String, Int> = mutableMapOf(),
+    val timestampsCapitulos: MutableMap<String, Long> = mutableMapOf()
 )
 
 object UserManager {
@@ -27,6 +28,8 @@ object UserManager {
 
     var estadoReactivo by mutableStateOf(0)
         private set
+
+
 
     fun cargar() {
         val texto = ZipHelper.leerTexto(FILE_NAME)
@@ -69,6 +72,7 @@ object UserManager {
 
     fun forzarExpiracionCache() {
         data.lastUpdateTimestamp = 0L
+        data.timestampsCapitulos.clear() // ¡NUEVO! Al forzar, también borramos los relojes de los capítulos
         guardar()
     }
 
@@ -158,5 +162,18 @@ object UserManager {
             guardar()
         }
     }
+
+
+    fun isCapitulosCacheExpired(idCache: String): Boolean {
+        val lastUpdate = data.timestampsCapitulos[idCache] ?: 0L
+        return (getCurrentTimeMillis() - lastUpdate) > 3600000L // 1 hora
+    }
+
+    fun actualizarTimestampCapitulos(idCache: String) {
+        data.timestampsCapitulos[idCache] = getCurrentTimeMillis()
+        guardar()
+    }
+    // -------------------------------------------
+
 
 }

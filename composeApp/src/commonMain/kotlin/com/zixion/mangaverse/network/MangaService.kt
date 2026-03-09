@@ -118,7 +118,7 @@ class MangaService {
             ZipHelper.guardarTexto("mangas_list.json", responseText)
 
             // BORRA O COMENTA ESTA LÍNEA:
-            UserManager.actualizarTimestampCache()
+            //UserManager.actualizarTimestampCache()
 
             val nombres: List<String> = globalJson.decodeFromString(responseText)
             return@withContext nombres.map { Manga(titulo = it.replace("_", " "), urlPortada = "${url}mangas/$it/portada") }
@@ -173,27 +173,30 @@ class MangaService {
     suspend fun obtenerCapitulos(mangaNombre: String, isColor: Boolean, forceRefresh: Boolean = false): List<String> = withContext(Dispatchers.IO) {
         val id = mangaNombre.replace(" ", "_")
         val tipo = if (isColor) "color" else "normal"
-        val cached = ZipHelper.leerTexto("caps_${id}_${tipo}.json")
-        val isCacheExpirada = UserManager.isCacheExpired()
+        val cacheName = "caps_${id}_${tipo}.json" // Variable útil para el reloj
+        val cached = ZipHelper.leerTexto(cacheName)
 
-        // 1. Añadimos la validación de forceRefresh y de lista.isNotEmpty()
+        // ¡CAMBIO CLAVE! Usamos el reloj independiente de capítulos
+        val isCacheExpirada = UserManager.isCapitulosCacheExpired(cacheName)
+
         if (!forceRefresh && cached != null && !isCacheExpirada) {
             try {
                 val lista = globalJson.decodeFromString<List<String>>(cached)
-                // 2. Solo usamos la caché si realmente tiene capítulos guardados
                 if (lista.isNotEmpty()) {
                     return@withContext lista
                 }
             } catch(e: Exception) {}
         }
 
-
-
         try {
             val url = determinarUrlBase()
             val endpoint = if (isColor) "color/capitulos" else "capitulos"
             val responseText = client.get("${url}mangas/$id/$endpoint").bodyAsText()
-            ZipHelper.guardarTexto("caps_${id}_${tipo}.json", responseText)
+            ZipHelper.guardarTexto(cacheName, responseText)
+
+            // ¡CAMBIO CLAVE! Guardamos la hora exacta en la que se actualizó ESTE manga
+            UserManager.actualizarTimestampCapitulos(cacheName)
+
             return@withContext globalJson.decodeFromString(responseText)
         } catch (e: Exception) {
             if (cached != null) {

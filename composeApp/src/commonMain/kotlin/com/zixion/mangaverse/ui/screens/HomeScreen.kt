@@ -575,6 +575,9 @@ class HomeScreen : Screen {
                             }
                         }
                     }
+
+
+
                 } catch (e: Exception) { }
             }
         }
@@ -603,6 +606,10 @@ class HomeScreen : Screen {
             }
         } else {
             categoriasGeneradas.add(CategoriaManga("Descubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
+        }
+
+        if (cacheEstabaExpirada) {
+            UserManager.actualizarTimestampCache()
         }
 
         onResult(todosCompletos, listaContinuarTemp, categoriasGeneradas)
