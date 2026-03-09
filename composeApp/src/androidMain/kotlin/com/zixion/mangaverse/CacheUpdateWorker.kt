@@ -10,62 +10,21 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.zixion.mangaverse.network.MangaService
-import com.zixion.mangaverse.network.UserManager
-import com.zixion.mangaverse.network.ZipHelper
-import kotlinx.serialization.json.Json
+import com.zixion.mangaverse.network.MangaUpdateChecker
 
 class CacheUpdateWorker(
     private val appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
-    // Instanciamos el serializador JSON para leer las cachés antiguas
-    private val json = Json { ignoreUnknownKeys = true }
-
     override suspend fun doWork(): Result {
         return try {
-            UserManager.cargar()
-            val servicio = MangaService()
+            // 1. Llamamos al cerebro compartido que ahora vive en commonMain
+            val novedades = MangaUpdateChecker.buscarNovedades()
 
-            // 1. Obtenemos solo los mangas que el usuario tiene en "Mi Biblioteca"
-            val miBiblioteca = UserManager.getBiblioteca()
-
-            // Aquí guardaremos los mensajes para la notificación (Ej: "One Piece: 1070, 1071")
-            val mangasConNovedades = mutableListOf<String>()
-
-            // 2. Comprobamos manga por manga de la biblioteca
-            for (mangaTitulo in miBiblioteca) {
-                val idManga = mangaTitulo.replace(" ", "_")
-
-                // A) Leemos lo que teníamos guardado LOCALMENTE (sin usar Internet)
-                val textoCacheVieja = ZipHelper.leerTexto("caps_${idManga}_normal.json")
-                val capsViejos: List<String> = if (textoCacheVieja != null) {
-                    try { json.decodeFromString(textoCacheVieja) } catch (e: Exception) { emptyList() }
-                } else emptyList()
-
-                // B) Forzamos a descargar la lista ACTUALIZADA desde tu servidor DuckDNS
-                val capsNuevos = servicio.obtenerCapitulos(mangaTitulo, isColor = false, forceRefresh = true)
-
-                // C) Comparamos: ¿Qué capítulos están en los Nuevos que NO están en los Viejos?
-                val capitulosEstreno = capsNuevos.filter { it !in capsViejos }
-
-                // Solo notificamos si antes YA teníamos capítulos (para que no avise de los 160 de golpe
-                // cuando añades un manga por primera vez) y si hay capítulos de estreno.
-                if (capsViejos.isNotEmpty() && capitulosEstreno.isNotEmpty()) {
-                    // Limpiamos el texto (quitamos el .cbz para que quede bonito en la notificación)
-                    val nombresLimpios = capitulosEstreno.map { it.replace(".cbz", "").replace(".zip", "") }
-                    mangasConNovedades.add("$mangaTitulo: ${nombresLimpios.joinToString(", ")}")
-                }
-            }
-
-            // 3. Ya hemos comprobado la biblioteca. Ahora actualizamos el catálogo general de la app
-            UserManager.forzarExpiracionCache()
-            servicio.obtenerMangas()
-
-            // 4. Si encontramos novedades, lanzamos la notificación inteligente
-            if (mangasConNovedades.isNotEmpty()) {
-                mostrarNotificacion(mangasConNovedades)
+            // 2. Si encontró algo, mandamos la notificación nativa de Android
+            if (novedades.isNotEmpty()) {
+                mostrarNotificacion(novedades)
             }
 
             Result.success()
@@ -93,13 +52,14 @@ class CacheUpdateWorker(
         val textoResumen = if (novedades.size == 1) novedades.first() else "Tienes ${novedades.size} mangas con nuevos capítulos."
 
         val builder = NotificationCompat.Builder(appContext, MangaApplication.CANAL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)            .setContentTitle(titulo)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(titulo)
             .setContentText(textoResumen)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
-        // ESTILO INBOX: Permite expandir la notificación para ver la lista de todos los mangas y capítulos
+        // ESTILO INBOX: Permite expandir la notificación
         val inboxStyle = NotificationCompat.InboxStyle()
         novedades.forEach { novedad ->
             inboxStyle.addLine(novedad)
