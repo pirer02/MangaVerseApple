@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
 
     private fun programarActualizacionEnSegundoPlano() {
         val restricciones = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-        val peticionTrabajo = PeriodicWorkRequestBuilder<CacheUpdateWorker>(15, TimeUnit.MINUTES).setConstraints(restricciones).build()
+        val peticionTrabajo = PeriodicWorkRequestBuilder<CacheUpdateWorker>(60, TimeUnit.MINUTES).setConstraints(restricciones).build()
 
         WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
             "MangaCacheUpdateWork",

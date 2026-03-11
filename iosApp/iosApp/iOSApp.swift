@@ -70,7 +70,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func programarProximaActualizacion() {
         let request = BGAppRefreshTaskRequest(identifier: taskIdentifier)
         // Le decimos a Apple: "Por favor, no me despiertes antes de 15 minutos (900 segundos)"
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)
         
         do {
             try BGTaskScheduler.shared.submit(request)
