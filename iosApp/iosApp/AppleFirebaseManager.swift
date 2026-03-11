@@ -88,19 +88,23 @@ class AppleFirebaseManager: NSObject, IosFirebaseDelegate {
         }
     }
     
+    
     // 6. Eliminar cuenta
-    func eliminarCuenta() async throws -> KotlinBoolean {
-        guard let user = Auth.auth().currentUser else {
-            return KotlinBoolean(value: false)
+        func eliminarCuenta() async throws -> KotlinBoolean {
+            guard let user = Auth.auth().currentUser else {
+                return KotlinBoolean(value: false)
+            }
+            let db = Firestore.firestore()
+            
+            do {
+                try await db.collection("usuarios").document(user.uid).delete()
+                try await user.delete()
+                return KotlinBoolean(value: true)
+            } catch {
+                return KotlinBoolean(value: false)
+            }
         }
-        let db = Firestore.firestore()
-        
-        do {
-            try await db.collection("usuarios").document(user.uid).delete()
-            try await user.delete()
-            return KotlinBoolean(value: true)
-        } catch {
-            return KotlinBoolean(value: false)
-        }
-    }
 }
+
+
+

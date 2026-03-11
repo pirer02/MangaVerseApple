@@ -481,6 +481,17 @@ class HomeScreen : Screen {
     ) = coroutineScope {
         UserManager.cargar()
 
+        // 2. NUEVO: Si hay un usuario, intentamos traer los datos más frescos de la nube
+        val authManager = AuthManager()
+        if (authManager.obtenerUsuarioActual() != null) {
+            try {
+                // Esto sobrescribirá los datos locales si hay algo más nuevo en la nube
+                UserManager.sincronizarDesdeNube()
+            } catch (e: Exception) {
+                e.printStackTrace() // Si falla (ej. sin internet), seguimos con lo local
+            }
+        }
+
         val cacheEstabaExpirada = UserManager.isCacheExpired()
 
         val todosBasicos = servicio.obtenerMangas()
@@ -632,7 +643,7 @@ fun VistaPerfil(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            // Cabecera de Perfil
+            // --- CABECERA DE PERFIL ---
             Icon(
                 imageVector = Icons.Default.AccountCircle,
                 contentDescription = "Avatar de Perfil",
@@ -687,6 +698,55 @@ fun VistaPerfil(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        // --- NUEVA SECCIÓN: PREFERENCIAS ---
+        item {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "PREFERENCIAS",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+                )
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("Notificaciones de capítulos", color = Color.White, fontSize = 16.sp)
+                        }
+
+                        // El Switch que controla UserManager
+                        Switch(
+                            checked = UserManager.areNotificacionesActivas(),
+                            onCheckedChange = { UserManager.setNotificaciones(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFFE50914), // Rojo MangaVerse
+                                checkedTrackColor = Color(0xFFE50914).copy(alpha = 0.5f),
+                                uncheckedThumbColor = Color.Gray,
+                                uncheckedTrackColor = Color.DarkGray
+                            )
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // --- SECCIÓN: GESTIÓN DE CUENTA (Solo si hay sesión) ---
         if (emailUsuario != null) {
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -713,6 +773,7 @@ fun VistaPerfil(
             }
         }
 
+        // --- SECCIÓN: SISTEMA Y DATOS ---
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("SISTEMA Y DATOS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 8.dp))

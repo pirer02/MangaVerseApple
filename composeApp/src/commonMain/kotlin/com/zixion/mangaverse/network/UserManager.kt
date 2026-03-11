@@ -17,7 +17,10 @@ data class UserData(
     val capitulosLeidos: MutableMap<String, MutableSet<String>> = mutableMapOf(),
     var lastUpdateTimestamp: Long = 0L,
     val progresoPagina: MutableMap<String, Int> = mutableMapOf(),
-    val timestampsCapitulos: MutableMap<String, Long> = mutableMapOf()
+    val timestampsCapitulos: MutableMap<String, Long> = mutableMapOf(),
+
+    var notificacionesActivas: Boolean = true // <-- AÑADIR ESTO
+
 )
 
 object UserManager {
@@ -173,6 +176,15 @@ object UserManager {
         data.timestampsCapitulos[idCache] = getCurrentTimeMillis()
         guardar()
     }
+
+
+    fun setNotificaciones(activas: Boolean) {
+        data.notificacionesActivas = activas
+        guardar() // Guarda el cambio localmente y en la nube
+    }
+
+    fun areNotificacionesActivas(): Boolean = data.notificacionesActivas
+
     // -------------------------------------------
 
 
