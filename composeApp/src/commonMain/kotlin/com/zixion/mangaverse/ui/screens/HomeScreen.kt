@@ -1,5 +1,6 @@
 package com.zixion.mangaverse.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +41,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import com.zixion.mangaverse.network.AuthManager
 import mangaverse.composeapp.generated.resources.Res
 import mangaverse.composeapp.generated.resources.google
+import org.jetbrains.compose.resources.painterResource
+import mangaverse.composeapp.generated.resources.mangaverse
 import org.jetbrains.compose.resources.painterResource
 
 enum class Seccion { INICIO, BIBLIOTECA, EXPLORAR, PERFIL }
@@ -84,6 +87,8 @@ class HomeScreen : Screen {
         var explorarQuery by rememberSaveable { mutableStateOf("") }
         var explorarFiltroGenero by rememberSaveable { mutableStateOf("Todos") }
         var explorarFiltroEstado by rememberSaveable { mutableStateOf("Todos") }
+        var explorarFiltroColor by rememberSaveable { mutableStateOf(false) } // NUEVO
+
 
         LaunchedEffect(Unit) {
             cargarDatos(servicio) { lista, continuar, categorias ->
@@ -107,17 +112,59 @@ class HomeScreen : Screen {
                     drawerContainerColor = Color.Transparent,
                     drawerContentColor = Color.White
                 ) {
-                    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color(0xFF800000), Color(0xFF400000), Color.Black)))) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF800000),
+                                    Color(0xFF400000),
+                                    Color.Black
+                                )
+                            )
+                        )
+                    ) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             Spacer(Modifier.height(40.dp))
 
-                            Text("MangaVerse", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp), color = Color.White)
+                            Image(
+                                painter = painterResource(Res.drawable.mangaverse),
+                                contentDescription = "Logo MangaVerse",
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .align(Alignment.CenterHorizontally)
+                            )
+                            Spacer(Modifier.height(16.dp))
+
+
+                            Text(
+                                "MangaVerse",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 20.dp)
+                                    .align(Alignment.CenterHorizontally), // Lo centramos para que quede bien con el logo
+                                color = Color.White
+                            )
 
                             // RESTAURADO: Mostrar correo en el menú lateral si hay usuario
                             if (usuarioActual != null) {
-                                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                                    Text("Sesión iniciada como:", fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
-                                    Text(usuarioActual!!.email, fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Column(
+                                    modifier = Modifier.padding(
+                                        horizontal = 20.dp,
+                                        vertical = 8.dp
+                                    )
+                                ) {
+                                    Text(
+                                        "Sesión iniciada como:",
+                                        fontSize = 11.sp,
+                                        color = Color.White.copy(alpha = 0.6f)
+                                    )
+                                    Text(
+                                        usuarioActual!!.email,
+                                        fontSize = 14.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
                                 }
                                 Spacer(Modifier.height(12.dp))
                             } else {
@@ -128,16 +175,80 @@ class HomeScreen : Screen {
                             Spacer(Modifier.height(16.dp))
 
                             // Navegación Simplificada
-                            NavigationDrawerItem(label = { Text("Inicio") }, selected = seccionActual == Seccion.INICIO, onClick = { seccionActual = Seccion.INICIO; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Home, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
-                            NavigationDrawerItem(label = { Text("Biblioteca") }, selected = seccionActual == Seccion.BIBLIOTECA, onClick = { seccionActual = Seccion.BIBLIOTECA; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.List, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
-                            NavigationDrawerItem(label = { Text("Explorar") }, selected = seccionActual == Seccion.EXPLORAR, onClick = { seccionActual = Seccion.EXPLORAR; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Search, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
+                            NavigationDrawerItem(
+                                label = { Text("Inicio") },
+                                selected = seccionActual == Seccion.INICIO,
+                                onClick = {
+                                    seccionActual =
+                                        Seccion.INICIO; scope.launch { drawerState.close() }
+                                },
+                                icon = { Icon(Icons.Default.Home, null) },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = Color.White.copy(alpha = 0.2f),
+                                    selectedTextColor = Color.White,
+                                    unselectedTextColor = Color.LightGray,
+                                    unselectedIconColor = Color.LightGray,
+                                    selectedIconColor = Color.White
+                                ),
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                            NavigationDrawerItem(
+                                label = { Text("Biblioteca") },
+                                selected = seccionActual == Seccion.BIBLIOTECA,
+                                onClick = {
+                                    seccionActual =
+                                        Seccion.BIBLIOTECA; scope.launch { drawerState.close() }
+                                },
+                                icon = { Icon(Icons.Default.List, null) },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = Color.White.copy(alpha = 0.2f),
+                                    selectedTextColor = Color.White,
+                                    unselectedTextColor = Color.LightGray,
+                                    unselectedIconColor = Color.LightGray,
+                                    selectedIconColor = Color.White
+                                ),
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                            NavigationDrawerItem(
+                                label = { Text("Explorar") },
+                                selected = seccionActual == Seccion.EXPLORAR,
+                                onClick = {
+                                    seccionActual =
+                                        Seccion.EXPLORAR; scope.launch { drawerState.close() }
+                                },
+                                icon = { Icon(Icons.Default.Search, null) },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = Color.White.copy(alpha = 0.2f),
+                                    selectedTextColor = Color.White,
+                                    unselectedTextColor = Color.LightGray,
+                                    unselectedIconColor = Color.LightGray,
+                                    selectedIconColor = Color.White
+                                ),
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
 
                             Spacer(Modifier.height(8.dp))
                             HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                             Spacer(Modifier.height(8.dp))
 
                             // Botón de Perfil en el panel
-                            NavigationDrawerItem(label = { Text("Mi Perfil") }, selected = seccionActual == Seccion.PERFIL, onClick = { seccionActual = Seccion.PERFIL; scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Person, null) }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color.White.copy(alpha = 0.2f), selectedTextColor = Color.White, unselectedTextColor = Color.LightGray, unselectedIconColor = Color.LightGray, selectedIconColor = Color.White), modifier = Modifier.padding(horizontal = 12.dp))
+                            NavigationDrawerItem(
+                                label = { Text("Mi Perfil") },
+                                selected = seccionActual == Seccion.PERFIL,
+                                onClick = {
+                                    seccionActual =
+                                        Seccion.PERFIL; scope.launch { drawerState.close() }
+                                },
+                                icon = { Icon(Icons.Default.Person, null) },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = Color.White.copy(alpha = 0.2f),
+                                    selectedTextColor = Color.White,
+                                    unselectedTextColor = Color.LightGray,
+                                    unselectedIconColor = Color.LightGray,
+                                    selectedIconColor = Color.White
+                                ),
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
                         }
                     }
                 }
@@ -146,17 +257,36 @@ class HomeScreen : Screen {
             Scaffold(
                 containerColor = Color(0xFF141414),
                 topBar = {
-                    Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(colors = listOf(Color(0xFF800000), Color.Black)))) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF800000),
+                                    Color.Black
+                                )
+                            )
+                        )
+                    ) {
                         TopAppBar(
                             title = {
-                                Text(text = when(seccionActual) {
-                                    Seccion.INICIO -> "Inicio"
-                                    Seccion.BIBLIOTECA -> "Mi Biblioteca"
-                                    Seccion.EXPLORAR -> "Explorar"
-                                    Seccion.PERFIL -> "Mi Perfil"
-                                }, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = when (seccionActual) {
+                                        Seccion.INICIO -> "Inicio"
+                                        Seccion.BIBLIOTECA -> "Mi Biblioteca"
+                                        Seccion.EXPLORAR -> "Explorar"
+                                        Seccion.PERFIL -> "Mi Perfil"
+                                    }, color = Color.White, fontWeight = FontWeight.Bold
+                                )
                             },
-                            navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, "Menú", tint = Color.White) } },
+                            navigationIcon = {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(
+                                        Icons.Default.Menu,
+                                        "Menú",
+                                        tint = Color.White
+                                    )
+                                }
+                            },
                             actions = {
                                 if (usuarioActual == null && seccionActual != Seccion.PERFIL) {
                                     TextButton(
@@ -168,21 +298,39 @@ class HomeScreen : Screen {
                                                     usuarioActual = usuario
                                                     UserManager.sincronizarDesdeNube()
                                                     cargarDatos(servicio) { lista, continuar, categorias ->
-                                                        listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias
+                                                        listaCompleta = lista; mangasContinuar =
+                                                        continuar; categoriasDinamicas = categorias
                                                     }
                                                 }
                                                 cargando = false
                                             }
                                         },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                        contentPadding = PaddingValues(
+                                            horizontal = 8.dp,
+                                            vertical = 4.dp
+                                        )
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            Text("Vincular con", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                                            Surface(shape = CircleShape, color = Color.White, modifier = Modifier.size(28.dp)) {
-                                                Icon(painter = painterResource(Res.drawable.google), contentDescription = "Google", tint = Color.Unspecified, modifier = Modifier.padding(5.dp))
+                                            Text(
+                                                "Vincular con",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = Color.White,
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(Res.drawable.google),
+                                                    contentDescription = "Google",
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.padding(5.dp)
+                                                )
                                             }
                                         }
                                     }
@@ -196,10 +344,13 @@ class HomeScreen : Screen {
             ) { padding ->
                 Box(modifier = Modifier.padding(padding).fillMaxSize()) {
                     if (cargando) {
-                        CircularProgressIndicator(color = Color(0xFFE50914), modifier = Modifier.align(Alignment.Center))
+                        CircularProgressIndicator(
+                            color = Color(0xFFE50914),
+                            modifier = Modifier.align(Alignment.Center)
+                        )
                     } else {
                         key(estadoGlobal) {
-                            when(seccionActual) {
+                            when (seccionActual) {
                                 Seccion.INICIO -> VistaInicio(
                                     state = inicioScrollState,
                                     categorias = categoriasDinamicas,
@@ -209,15 +360,37 @@ class HomeScreen : Screen {
                                     onContinueClick = { data ->
                                         scope.launch {
                                             cargando = true
-                                            when(data.modo) {
+                                            when (data.modo) {
                                                 ModoLectura.NORMAL -> {
-                                                    val caps = servicio.obtenerCapitulos(data.manga.titulo, false)
-                                                    cargando = false; navigator.push(LectorCapituloScreen(data.manga, data.capitulo, caps, false))
+                                                    val caps = servicio.obtenerCapitulos(
+                                                        data.manga.titulo,
+                                                        false
+                                                    )
+                                                    cargando = false; navigator.push(
+                                                        LectorCapituloScreen(
+                                                            data.manga,
+                                                            data.capitulo,
+                                                            caps,
+                                                            false
+                                                        )
+                                                    )
                                                 }
+
                                                 ModoLectura.COLOR -> {
-                                                    val caps = servicio.obtenerCapitulos(data.manga.titulo, true)
-                                                    cargando = false; navigator.push(LectorCapituloScreen(data.manga, data.capitulo, caps, true))
+                                                    val caps = servicio.obtenerCapitulos(
+                                                        data.manga.titulo,
+                                                        true
+                                                    )
+                                                    cargando = false; navigator.push(
+                                                        LectorCapituloScreen(
+                                                            data.manga,
+                                                            data.capitulo,
+                                                            caps,
+                                                            true
+                                                        )
+                                                    )
                                                 }
+
                                                 ModoLectura.PREGUNTAR -> {
                                                     cargando = false; dialogContinuarColor = data
                                                 }
@@ -226,24 +399,42 @@ class HomeScreen : Screen {
                                     },
                                     onDeleteProgress = { mangaABorrarProgreso = it }
                                 )
+
                                 Seccion.BIBLIOTECA -> VistaBiblioteca(
                                     state = biblioScrollState,
                                     lista = listaCompleta,
                                     onClick = { m -> navigator.push(CapitulosScreen(m)) },
                                     onToggle = { m -> toggleBiblio(m) }
                                 )
+
                                 Seccion.EXPLORAR -> VistaExplorar(
                                     state = explorarGridState,
                                     lista = listaCompleta,
                                     query = explorarQuery,
-                                    onQueryChange = { explorarQuery = it },
+                                    onQueryChange = {
+                                        explorarQuery = it
+                                        scope.launch { explorarGridState.scrollToItem(0) }
+                                    },
                                     filtroGenero = explorarFiltroGenero,
-                                    onFiltroGeneroChange = { explorarFiltroGenero = it },
+                                    onFiltroGeneroChange = {
+                                        explorarFiltroGenero = it
+                                        scope.launch { explorarGridState.scrollToItem(0) }
+                                    },
                                     filtroEstado = explorarFiltroEstado,
-                                    onFiltroEstadoChange = { explorarFiltroEstado = it },
+                                    onFiltroEstadoChange = {
+                                        explorarFiltroEstado = it
+                                        scope.launch { explorarGridState.scrollToItem(0) }
+                                    },
+                                    filtroColor = explorarFiltroColor,
+                                    onFiltroColorChange = {
+                                        explorarFiltroColor = it
+                                        scope.launch { explorarGridState.scrollToItem(0) }
+                                    },
+                                    servicio = servicio,
                                     onToggle = { m -> toggleBiblio(m) },
                                     onClick = { m -> navigator.push(CapitulosScreen(m)) }
                                 )
+
                                 Seccion.PERFIL -> VistaPerfil(
                                     emailUsuario = usuarioActual?.email,
                                     onLogin = {
@@ -254,7 +445,8 @@ class HomeScreen : Screen {
                                                 usuarioActual = usuario
                                                 UserManager.sincronizarDesdeNube()
                                                 cargarDatos(servicio) { lista, continuar, categorias ->
-                                                    listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias
+                                                    listaCompleta = lista; mangasContinuar =
+                                                    continuar; categoriasDinamicas = categorias
                                                 }
                                             }
                                             cargando = false
@@ -284,8 +476,19 @@ class HomeScreen : Screen {
             val data = dialogContinuarColor!!
             AlertDialog(
                 onDismissRequest = { dialogContinuarColor = null },
-                title = { Text("¿Cómo deseas leerlo?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Estás al mismo nivel en ambas versiones. Elige una:", color = Color.LightGray) },
+                title = {
+                    Text(
+                        "¿Cómo deseas leerlo?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        "Estás al mismo nivel en ambas versiones. Elige una:",
+                        color = Color.LightGray
+                    )
+                },
                 containerColor = Color(0xFF1E1E1E),
                 confirmButton = {
                     Button(
@@ -294,10 +497,19 @@ class HomeScreen : Screen {
                             scope.launch {
                                 cargando = true
                                 val capsColor = servicio.obtenerCapitulos(data.manga.titulo, true)
-                                val nombreBuscado = data.capitulo.replace(".cbz", "").replace(".zip", "")
-                                val capElegido = capsColor.find { it.contains(nombreBuscado) } ?: data.capitulo
+                                val nombreBuscado =
+                                    data.capitulo.replace(".cbz", "").replace(".zip", "")
+                                val capElegido =
+                                    capsColor.find { it.contains(nombreBuscado) } ?: data.capitulo
                                 cargando = false
-                                navigator.push(LectorCapituloScreen(data.manga, capElegido, capsColor, true))
+                                navigator.push(
+                                    LectorCapituloScreen(
+                                        data.manga,
+                                        capElegido,
+                                        capsColor,
+                                        true
+                                    )
+                                )
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
@@ -309,9 +521,17 @@ class HomeScreen : Screen {
                             dialogContinuarColor = null
                             scope.launch {
                                 cargando = true
-                                val capsOriginal = servicio.obtenerCapitulos(data.manga.titulo, false)
+                                val capsOriginal =
+                                    servicio.obtenerCapitulos(data.manga.titulo, false)
                                 cargando = false
-                                navigator.push(LectorCapituloScreen(data.manga, data.capitulo, capsOriginal, false))
+                                navigator.push(
+                                    LectorCapituloScreen(
+                                        data.manga,
+                                        data.capitulo,
+                                        capsOriginal,
+                                        false
+                                    )
+                                )
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
@@ -323,8 +543,19 @@ class HomeScreen : Screen {
         if (mangaABorrarProgreso != null) {
             AlertDialog(
                 onDismissRequest = { mangaABorrarProgreso = null },
-                title = { Text("¿Olvidar manga?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Se eliminará de tu lista de 'Continuar Leyendo' y se marcarán todos sus capítulos como no leídos.", color = Color.LightGray) },
+                title = {
+                    Text(
+                        "¿Olvidar manga?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        "Se eliminará de tu lista de 'Continuar Leyendo' y se marcarán todos sus capítulos como no leídos.",
+                        color = Color.LightGray
+                    )
+                },
                 containerColor = Color(0xFF1E1E1E),
                 confirmButton = {
                     Button(
@@ -335,22 +566,38 @@ class HomeScreen : Screen {
                                 cargando = true
                                 UserManager.borrarProgresoManga(manga.titulo)
                                 cargarDatos(servicio) { lista, continuar, categorias ->
-                                    listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias; cargando = false
+                                    listaCompleta = lista; mangasContinuar =
+                                    continuar; categoriasDinamicas = categorias; cargando = false
                                 }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
                     ) { Text("Borrar progreso") }
                 },
-                dismissButton = { TextButton(onClick = { mangaABorrarProgreso = null }) { Text("Cancelar", color = Color.White) } }
+                dismissButton = {
+                    TextButton(onClick = {
+                        mangaABorrarProgreso = null
+                    }) { Text("Cancelar", color = Color.White) }
+                }
             )
         }
 
         if (mostrarDialogoActualizar) {
             AlertDialog(
                 onDismissRequest = { mostrarDialogoActualizar = false },
-                title = { Text("¿Forzar actualización?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Se buscará nuevo contenido en el servidor inmediatamente sin esperar el tiempo de caché. Esto puede tardar unos segundos.", color = Color.LightGray) },
+                title = {
+                    Text(
+                        "¿Forzar actualización?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        "Se buscará nuevo contenido en el servidor inmediatamente sin esperar el tiempo de caché. Esto puede tardar unos segundos.",
+                        color = Color.LightGray
+                    )
+                },
                 containerColor = Color(0xFF1E1E1E),
                 confirmButton = {
                     Button(
@@ -370,7 +617,14 @@ class HomeScreen : Screen {
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4DA8DA))
                     ) { Text("Actualizar", color = Color.Black, fontWeight = FontWeight.Bold) }
                 },
-                dismissButton = { TextButton(onClick = { mostrarDialogoActualizar = false }) { Text("Cancelar", color = Color.White) } }
+                dismissButton = {
+                    TextButton(onClick = { mostrarDialogoActualizar = false }) {
+                        Text(
+                            "Cancelar",
+                            color = Color.White
+                        )
+                    }
+                }
             )
         }
 
@@ -378,7 +632,12 @@ class HomeScreen : Screen {
             AlertDialog(
                 onDismissRequest = { mostrarDialogoBorrar = false },
                 title = { Text("¿Restablecer Aplicación?", color = Color.White) },
-                text = { Text("Se borrarán todos los mangas guardados y tu historial de lectura. Esta acción no se deshace.", color = Color.LightGray) },
+                text = {
+                    Text(
+                        "Se borrarán todos los mangas guardados y tu historial de lectura. Esta acción no se deshace.",
+                        color = Color.LightGray
+                    )
+                },
                 containerColor = Color(0xFF1E1E1E),
                 confirmButton = {
                     Button(
@@ -388,14 +647,19 @@ class HomeScreen : Screen {
                             cargando = true
                             scope.launch {
                                 cargarDatos(servicio) { lista, continuar, categorias ->
-                                    listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias; cargando = false
+                                    listaCompleta = lista; mangasContinuar =
+                                    continuar; categoriasDinamicas = categorias; cargando = false
                                 }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
                     ) { Text("Borrar Todo") }
                 },
-                dismissButton = { TextButton(onClick = { mostrarDialogoBorrar = false }) { Text("Cancelar", color = Color.White) } }
+                dismissButton = {
+                    TextButton(onClick = {
+                        mostrarDialogoBorrar = false
+                    }) { Text("Cancelar", color = Color.White) }
+                }
             )
         }
 
@@ -403,7 +667,12 @@ class HomeScreen : Screen {
             AlertDialog(
                 onDismissRequest = { mostrarDialogoCerrarSesion = false },
                 title = { Text("¿Cerrar Sesión?", color = Color.White) },
-                text = { Text("Se cerrará tu sesión y se borrarán los datos locales por seguridad, pero tu biblioteca seguirá guardada en la nube para cuando vuelvas.", color = Color.LightGray) },
+                text = {
+                    Text(
+                        "Se cerrará tu sesión y se borrarán los datos locales por seguridad, pero tu biblioteca seguirá guardada en la nube para cuando vuelvas.",
+                        color = Color.LightGray
+                    )
+                },
                 containerColor = Color(0xFF1E1E1E),
                 confirmButton = {
                     Button(
@@ -417,21 +686,32 @@ class HomeScreen : Screen {
                             cargando = true
                             scope.launch {
                                 cargarDatos(servicio) { lista, continuar, categorias ->
-                                    listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias; cargando = false
+                                    listaCompleta = lista; mangasContinuar =
+                                    continuar; categoriasDinamicas = categorias; cargando = false
                                 }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
                     ) { Text("Cerrar Sesión") }
                 },
-                dismissButton = { TextButton(onClick = { mostrarDialogoCerrarSesion = false }) { Text("Cancelar", color = Color.White) } }
+                dismissButton = {
+                    TextButton(onClick = {
+                        mostrarDialogoCerrarSesion = false
+                    }) { Text("Cancelar", color = Color.White) }
+                }
             )
         }
 
         if (mostrarDialogoBorrarCuenta) {
             AlertDialog(
                 onDismissRequest = { mostrarDialogoBorrarCuenta = false },
-                title = { Text("¿Eliminar cuenta permanentemente?", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "¿Eliminar cuenta permanentemente?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 text = {
                     Text(
                         "Esta acción no se puede deshacer. Se borrarán todos tus datos guardados en la nube, incluyendo tu biblioteca y progreso de lectura de forma definitiva.",
@@ -453,7 +733,9 @@ class HomeScreen : Screen {
                                     seccionActual = Seccion.INICIO
 
                                     cargarDatos(servicio) { lista, continuar, categorias ->
-                                        listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias; cargando = false
+                                        listaCompleta = lista; mangasContinuar =
+                                        continuar; categoriasDinamicas = categorias; cargando =
+                                        false
                                     }
                                 } else {
                                     cargando = false
@@ -505,21 +787,29 @@ class HomeScreen : Screen {
             if (ultimoNormal != null || ultimoColor != null) {
                 try {
                     val capsNormal = servicio.obtenerCapitulos(manga.titulo, false)
-                    val capsColor = try { servicio.obtenerCapitulos(manga.titulo, true) } catch (e: Exception) { emptyList() }
+                    val capsColor = try {
+                        servicio.obtenerCapitulos(manga.titulo, true)
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
 
                     var scoreNormal = -1
                     var nextCapNormal = ""
 
                     if (ultimoNormal != null) {
-                        val idx = capsNormal.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoNormal }
+                        val idx = capsNormal.indexOfFirst {
+                            it.replace(".cbz", "").replace(".zip", "") == ultimoNormal
+                        }
                         if (idx != -1) {
-                            val leido = UserManager.isCapituloLeido(manga.titulo, ultimoNormal, false)
+                            val leido =
+                                UserManager.isCapituloLeido(manga.titulo, ultimoNormal, false)
 
                             if (leido && idx >= capsNormal.size - 1) {
                                 // No hacemos nada
                             } else {
                                 scoreNormal = (idx * 2) + if (leido) 1 else 0
-                                val nextNormalIdx = if (leido && idx < capsNormal.size - 1) idx + 1 else idx
+                                val nextNormalIdx =
+                                    if (leido && idx < capsNormal.size - 1) idx + 1 else idx
                                 nextCapNormal = capsNormal[nextNormalIdx]
                             }
                         }
@@ -531,13 +821,18 @@ class HomeScreen : Screen {
                     var colorSePasaANormal = false
 
                     if (ultimoColor != null) {
-                        val idxMasterDeColor = capsNormal.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
+                        val idxMasterDeColor = capsNormal.indexOfFirst {
+                            it.replace(".cbz", "").replace(".zip", "") == ultimoColor
+                        }
 
                         if (idxMasterDeColor != -1) {
                             val leido = UserManager.isCapituloLeido(manga.titulo, ultimoColor, true)
-                            val idxInColorList = capsColor.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
+                            val idxInColorList = capsColor.indexOfFirst {
+                                it.replace(".cbz", "").replace(".zip", "") == ultimoColor
+                            }
 
-                            val noHayMasColor = idxInColorList == -1 || idxInColorList >= capsColor.size - 1
+                            val noHayMasColor =
+                                idxInColorList == -1 || idxInColorList >= capsColor.size - 1
                             val noHayMasNormal = idxMasterDeColor >= capsNormal.size - 1
 
                             if (leido && noHayMasColor && noHayMasNormal) {
@@ -569,54 +864,106 @@ class HomeScreen : Screen {
 
                     if (scoreNormal != -1 || scoreColor != -1) {
                         if (scoreNormal > scoreColor) {
-                            listaContinuarTemp.add(ContinuarData(manga, nextCapNormal, ModoLectura.NORMAL))
+                            listaContinuarTemp.add(
+                                ContinuarData(
+                                    manga,
+                                    nextCapNormal,
+                                    ModoLectura.NORMAL
+                                )
+                            )
                         } else if (scoreColor > scoreNormal) {
                             if (colorSePasaANormal) {
-                                listaContinuarTemp.add(ContinuarData(manga, nextCapColor, ModoLectura.NORMAL))
+                                listaContinuarTemp.add(
+                                    ContinuarData(
+                                        manga,
+                                        nextCapColor,
+                                        ModoLectura.NORMAL
+                                    )
+                                )
                             } else {
-                                listaContinuarTemp.add(ContinuarData(manga, nextCapColor, ModoLectura.COLOR))
+                                listaContinuarTemp.add(
+                                    ContinuarData(
+                                        manga,
+                                        nextCapColor,
+                                        ModoLectura.COLOR
+                                    )
+                                )
                             }
                         } else {
                             if (colorSePasaANormal) {
-                                listaContinuarTemp.add(ContinuarData(manga, nextCapColor, ModoLectura.NORMAL))
+                                listaContinuarTemp.add(
+                                    ContinuarData(
+                                        manga,
+                                        nextCapColor,
+                                        ModoLectura.NORMAL
+                                    )
+                                )
                             } else if (colorTieneSiguiente) {
-                                listaContinuarTemp.add(ContinuarData(manga, nextCapNormal, ModoLectura.PREGUNTAR))
+                                listaContinuarTemp.add(
+                                    ContinuarData(
+                                        manga,
+                                        nextCapNormal,
+                                        ModoLectura.PREGUNTAR
+                                    )
+                                )
                             } else {
-                                listaContinuarTemp.add(ContinuarData(manga, nextCapNormal, ModoLectura.NORMAL))
+                                listaContinuarTemp.add(
+                                    ContinuarData(
+                                        manga,
+                                        nextCapNormal,
+                                        ModoLectura.NORMAL
+                                    )
+                                )
                             }
                         }
                     }
 
 
-
-                } catch (e: Exception) { }
+                } catch (e: Exception) {
+                }
             }
         }
 
-        val generosPermitidos = listOf("Shonen", "Accion", "Aventura", "Comedia", "Drama", "Seinen", "Romance", "Isekai", "Deporte", "Chanbara")
+        val generosPermitidos = listOf(
+            "Shonen",
+            "Accion",
+            "Aventura",
+            "Comedia",
+            "Drama",
+            "Seinen",
+            "Romance",
+            "Isekai",
+            "Deporte",
+            "Chanbara"
+        )
 
         val generosValidos = generosPermitidos.filter { permitido ->
             todosCompletos.any { manga ->
-                manga.generos.any { g -> g.equals(permitido, ignoreCase = true)}
+                manga.generos.any { g -> g.equals(permitido, ignoreCase = true) }
             }
         }
 
         val categoriasGeneradas = mutableListOf<CategoriaManga>()
 
-        if (generosValidos.isNotEmpty()){
+        if (generosValidos.isNotEmpty()) {
             generosValidos.shuffled().take(minOf(10, generosValidos.size)).forEach { genero ->
 
                 val mangasDelGenero = todosCompletos
-                    .filter { it.generos.any { g -> g.equals(genero, ignoreCase = true)} }
+                    .filter { it.generos.any { g -> g.equals(genero, ignoreCase = true) } }
                     .shuffled()
                     .take(24)
 
-                if (mangasDelGenero.isNotEmpty()){
+                if (mangasDelGenero.isNotEmpty()) {
                     categoriasGeneradas.add(CategoriaManga("Lo mejor en $genero", mangasDelGenero))
                 }
             }
         } else {
-            categoriasGeneradas.add(CategoriaManga("Descubrimientos Aleatorios", todosCompletos.shuffled().take(15)))
+            categoriasGeneradas.add(
+                CategoriaManga(
+                    "Descubrimientos Aleatorios",
+                    todosCompletos.shuffled().take(15)
+                )
+            )
         }
 
         if (cacheEstabaExpirada) {
@@ -688,7 +1035,11 @@ fun VistaPerfil(
                             tint = Color.Unspecified,
                             modifier = Modifier.size(20.dp)
                         )
-                        Text("Vincular con Google", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Vincular con Google",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -726,7 +1077,11 @@ fun VistaPerfil(
                                 tint = Color.White
                             )
                             Spacer(modifier = Modifier.width(16.dp))
-                            Text("Notificaciones de capítulos", color = Color.White, fontSize = 16.sp)
+                            Text(
+                                "Notificaciones de capítulos",
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
                         }
 
                         // El Switch que controla UserManager
@@ -750,7 +1105,13 @@ fun VistaPerfil(
         if (emailUsuario != null) {
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text("GESTIÓN DE CUENTA", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 8.dp))
+                    Text(
+                        "GESTIÓN DE CUENTA",
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+                    )
 
                     PerfilItemCard(
                         texto = "Cambiar de cuenta",
@@ -776,7 +1137,13 @@ fun VistaPerfil(
         // --- SECCIÓN: SISTEMA Y DATOS ---
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("SISTEMA Y DATOS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 8.dp))
+                Text(
+                    "SISTEMA Y DATOS",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+                )
 
                 PerfilItemCard(
                     texto = "Forzar Actualización Manual",
@@ -813,7 +1180,12 @@ fun PerfilItemCard(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(imageVector = icono, contentDescription = null, tint = colorTexto, modifier = Modifier.size(24.dp))
+            Icon(
+                imageVector = icono,
+                contentDescription = null,
+                tint = colorTexto,
+                modifier = Modifier.size(24.dp)
+            )
             Spacer(modifier = Modifier.width(16.dp))
             Text(text = texto, color = colorTexto, fontSize = 16.sp, fontWeight = FontWeight.Medium)
         }
@@ -830,11 +1202,25 @@ fun VistaInicio(
     onContinueClick: (ContinuarData) -> Unit,
     onDeleteProgress: (Manga) -> Unit
 ) {
-    LazyColumn(state = state, modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(bottom = 30.dp)) {
+    LazyColumn(
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        contentPadding = PaddingValues(bottom = 30.dp)
+    ) {
         if (continuar.isNotEmpty()) {
             item {
-                Text("Continuar Leyendo", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Continuar Leyendo",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(16.dp)
+                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     items(continuar) { data ->
                         val nombreVisible = data.capitulo.replace(".cbz", "").replace(".zip", "")
                         val suffix = if (data.modo == ModoLectura.COLOR) " (Color)" else ""
@@ -852,32 +1238,90 @@ fun VistaInicio(
                 }
             }
         }
-        items(categorias) { categoria -> FilaGenero(categoria.titulo, categoria.mangas, onToggle, onClick) }
-    }
-}
-
-@Composable
-fun FilaGenero(titulo: String, lista: List<Manga>, onToggle: (Manga) -> Unit, onClick: (Manga) -> Unit) {
-    Column {
-        Text(titulo, color = Color(0xFFE5E5E5), fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(lista) { manga -> MangaCard(manga = manga, enBiblioteca = UserManager.enBiblioteca(manga.titulo), onToggleLibrary = { onToggle(manga) }, onClick = { onClick(manga) }) }
+        items(categorias) { categoria ->
+            FilaGenero(
+                categoria.titulo,
+                categoria.mangas,
+                onToggle,
+                onClick
+            )
         }
     }
 }
 
 @Composable
-fun VistaBiblioteca(state: LazyListState, lista: List<Manga>, onClick: (Manga) -> Unit, onToggle: (Manga) -> Unit) {
+fun FilaGenero(
+    titulo: String,
+    lista: List<Manga>,
+    onToggle: (Manga) -> Unit,
+    onClick: (Manga) -> Unit
+) {
+    Column {
+        Text(
+            titulo,
+            color = Color(0xFFE5E5E5),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(lista) { manga ->
+                MangaCard(
+                    manga = manga,
+                    enBiblioteca = UserManager.enBiblioteca(manga.titulo),
+                    onToggleLibrary = { onToggle(manga) },
+                    onClick = { onClick(manga) })
+            }
+        }
+    }
+}
+
+@Composable
+fun VistaBiblioteca(
+    state: LazyListState,
+    lista: List<Manga>,
+    onClick: (Manga) -> Unit,
+    onToggle: (Manga) -> Unit
+) {
     val enBiblio = lista.filter { UserManager.enBiblioteca(it.titulo) }
 
-    LazyColumn(state = state, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
-        item { Text("Guardados", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp)) }
+    LazyColumn(
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 30.dp)
+    ) {
+        item {
+            Text(
+                "Guardados",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
         if (enBiblio.isEmpty()) {
-            item { Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { Text("Tu biblioteca está vacía.", color = Color.Gray) } }
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("Tu biblioteca está vacía.", color = Color.Gray) }
+            }
         } else {
             items(enBiblio.chunked(3)) { fila ->
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    fila.forEach { m -> MangaCard(manga = m, enBiblioteca = true, onToggleLibrary = { onToggle(m) }, onClick = { onClick(m) }) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    fila.forEach { m ->
+                        MangaCard(
+                            manga = m,
+                            enBiblioteca = true,
+                            onToggleLibrary = { onToggle(m) },
+                            onClick = { onClick(m) })
+                    }
                 }
             }
         }
@@ -895,14 +1339,54 @@ fun VistaExplorar(
     onFiltroGeneroChange: (String) -> Unit,
     filtroEstado: String,
     onFiltroEstadoChange: (String) -> Unit,
+    filtroColor: Boolean,
+    onFiltroColorChange: (Boolean) -> Unit,
+    servicio: MangaService,
     onToggle: (Manga) -> Unit,
     onClick: (Manga) -> Unit
 ) {
-    val opcionesGeneros = listOf("Todos", "Shonen", "Accion", "Aventura", "Comedia", "Drama", "Seinen", "Romance", "Isekai", "Deporte", "Chanbara")
+    val opcionesGeneros = listOf(
+        "Todos", "Shonen", "Accion", "Aventura", "Comedia", "Drama", "Seinen", "Romance", "Isekai", "Deporte", "Chanbara"
+    )
     val opcionesEstados = listOf("Todos", "En Emisión", "Terminado")
 
-    LaunchedEffect(query, filtroGenero, filtroEstado) {
-        state.scrollToItem(0)
+    var mangasFiltrados by remember { mutableStateOf(emptyList<Manga>()) }
+    var cargandoFiltros by remember { mutableStateOf(false) }
+
+    LaunchedEffect(query, filtroGenero, filtroEstado, filtroColor, lista) {
+        cargandoFiltros = true
+
+        // 1. Filtro local (instantáneo)
+        val preFiltrados = lista.filter { manga ->
+            val coincideTexto = manga.titulo.contains(query, ignoreCase = true)
+            val coincideGenero = if (filtroGenero == "Todos") true else {
+                manga.generos.any { it.trim().equals(filtroGenero, ignoreCase = true) }
+            }
+            val coincideEstado = when (filtroEstado) {
+                "Terminado" -> manga.estado.contains("finalizado", true) || manga.estado.contains("terminado", true)
+                "En Emisión" -> !manga.estado.contains("finalizado", true) && !manga.estado.contains("terminado", true)
+                else -> true
+            }
+            coincideTexto && coincideGenero && coincideEstado
+        }
+
+        // 2. Filtro de color (Consulta al servidor)
+        if (filtroColor) {
+            val finales = preFiltrados.map { m ->
+                async {
+                    if (servicio.tieneColor(m.titulo)) m else null
+                }
+            }.awaitAll().filterNotNull()
+
+            mangasFiltrados = finales
+        } else {
+            mangasFiltrados = preFiltrados
+        }
+
+        // Apagamos el icono de carga
+        cargandoFiltros = false
+
+        // ¡El scroll automático hacia arriba se ha eliminado de aquí!
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -911,12 +1395,20 @@ fun VistaExplorar(
             onValueChange = onQueryChange,
             placeholder = { Text("Buscar por título...", color = Color.Gray) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = Color(0xFFE50914), unfocusedBorderColor = Color.DarkGray),
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp), singleLine = true
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                focusedBorderColor = Color(0xFFE50914),
+                unfocusedBorderColor = Color.DarkGray
+            ),
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+            singleLine = true
         )
 
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             var expandidoGenero by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = expandidoGenero,
@@ -930,8 +1422,10 @@ fun VistaExplorar(
                     label = { Text("Género", color = Color.Gray, fontSize = 12.sp) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandidoGenero) },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFFE50914), unfocusedBorderColor = Color.DarkGray
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFFE50914),
+                        unfocusedBorderColor = Color.DarkGray
                     ),
                     modifier = Modifier.menuAnchor(),
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
@@ -963,8 +1457,10 @@ fun VistaExplorar(
                     label = { Text("Estado", color = Color.Gray, fontSize = 12.sp) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandidoEstado) },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFFE50914), unfocusedBorderColor = Color.DarkGray
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFFE50914),
+                        unfocusedBorderColor = Color.DarkGray
                     ),
                     modifier = Modifier.menuAnchor(),
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
@@ -984,24 +1480,46 @@ fun VistaExplorar(
             }
         }
 
-        val filtrados = lista.filter { manga ->
-            val coincideTexto = manga.titulo.contains(query, ignoreCase = true)
-
-            val coincideGenero = if (filtroGenero == "Todos") true else {
-                manga.generos.any { it.trim().equals(filtroGenero, ignoreCase = true) }
-            }
-
-            val coincideEstado = when (filtroEstado) {
-                "Terminado" -> manga.estado.contains("finalizado", true) || manga.estado.contains("terminado", true)
-                "En Emisión" -> !manga.estado.contains("finalizado", true) && !manga.estado.contains("terminado", true)
-                else -> true
-            }
-
-            coincideTexto && coincideGenero && coincideEstado
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = filtroColor,
+                onCheckedChange = onFiltroColorChange,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = Color(0xFFE50914),
+                    uncheckedColor = Color.Gray
+                )
+            )
+            Text("Solo mangas a color", color = Color.White, fontSize = 14.sp)
         }
 
-        LazyVerticalGrid(state = state, columns = GridCells.Adaptive(minSize = 110.dp), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(filtrados) { manga -> MangaCard(manga = manga, enBiblioteca = UserManager.enBiblioteca(manga.titulo), onToggleLibrary = { onToggle(manga) }, onClick = { onClick(manga) }) }
+        if (cargandoFiltros) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFFE50914))
+            }
+        } else if (mangasFiltrados.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No se encontraron resultados.", color = Color.Gray)
+            }
+        } else {
+            LazyVerticalGrid(
+                state = state,
+                columns = GridCells.Adaptive(minSize = 110.dp),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(mangasFiltrados) { manga ->
+                    MangaCard(
+                        manga = manga,
+                        enBiblioteca = UserManager.enBiblioteca(manga.titulo),
+                        onToggleLibrary = { onToggle(manga) },
+                        onClick = { onClick(manga) }
+                    )
+                }
+            }
         }
     }
 }
