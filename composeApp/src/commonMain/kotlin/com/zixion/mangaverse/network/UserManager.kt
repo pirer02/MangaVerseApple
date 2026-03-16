@@ -44,24 +44,32 @@ object UserManager {
         }
     }
 
-    private fun guardar() {
+    // 1. NUEVA FUNCIÓN: Solo guarda en el dispositivo (ideal para la caché)
+    private fun guardarLocal() {
         val texto = json.encodeToString(data)
         ZipHelper.guardarTexto(FILE_NAME, texto)
         estadoReactivo++
+    }
 
-        // --- LÍNEAS NUEVAS: Subir a la nube silenciosamente ---
+    // 2. FUNCIÓN MODIFICADA: Guarda en el dispositivo Y sube a la nube
+    private fun guardar() {
+        guardarLocal()
+
+        // Solo sube a la nube cuando hay cambios reales (añadir manga, leer, etc.)
         if (authManager.obtenerUsuarioActual() != null) {
             GlobalScope.launch {
-                authManager.guardarDatosEnNube(texto)
+                authManager.guardarDatosEnNube(json.encodeToString(data))
             }
         }
     }
 
     fun borrarTodoDeFabrica() {
         ZipHelper.borrarTodo()
-        // Eliminada la referencia a MusicManager
         data = UserData()
-        guardar()
+        // NO llamamos a guardar() aquí para evitar borrar la nube por accidente
+        val texto = json.encodeToString(data)
+        ZipHelper.guardarTexto(FILE_NAME, texto)
+        estadoReactivo++
     }
 
     fun isCacheExpired(): Boolean {
@@ -70,13 +78,13 @@ object UserManager {
 
     fun actualizarTimestampCache() {
         data.lastUpdateTimestamp = getCurrentTimeMillis()
-        guardar()
+        guardarLocal()
     }
 
     fun forzarExpiracionCache() {
         data.lastUpdateTimestamp = 0L
         data.timestampsCapitulos.clear() // ¡NUEVO! Al forzar, también borramos los relojes de los capítulos
-        guardar()
+        guardarLocal()
     }
 
     fun toggleBiblioteca(titulo: String): Boolean {
@@ -155,15 +163,14 @@ object UserManager {
         val textoNube = authManager.cargarDatosDeNube()
         if (textoNube != null) {
             try {
-                // Sobrescribimos los datos locales con los de la nube
                 data = json.decodeFromString(textoNube)
                 ZipHelper.guardarTexto(FILE_NAME, textoNube)
                 estadoReactivo++
             } catch (e: Exception) { e.printStackTrace() }
-        } else {
-            // Es un usuario nuevo en la nube, subimos su progreso local actual
-            guardar()
         }
+        // ELIMINADO el else { guardar() }.
+        // Si no hay datos en la nube, no forzamos la creación de un documento vacío.
+        // Se creará naturalmente la primera vez que el usuario agregue un manga.
     }
 
 
@@ -174,7 +181,7 @@ object UserManager {
 
     fun actualizarTimestampCapitulos(idCache: String) {
         data.timestampsCapitulos[idCache] = getCurrentTimeMillis()
-        guardar()
+        guardarLocal()
     }
 
 

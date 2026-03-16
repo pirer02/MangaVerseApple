@@ -293,13 +293,15 @@ class HomeScreen : Screen {
                                         onClick = {
                                             scope.launch {
                                                 cargando = true
+                                                authManager.cerrarSesion() // Cierre preventivo
+                                                UserManager.borrarTodoDeFabrica() // Limpieza segura
+
                                                 val usuario = authManager.iniciarSesionGoogle()
                                                 if (usuario != null) {
                                                     usuarioActual = usuario
                                                     UserManager.sincronizarDesdeNube()
                                                     cargarDatos(servicio) { lista, continuar, categorias ->
-                                                        listaCompleta = lista; mangasContinuar =
-                                                        continuar; categoriasDinamicas = categorias
+                                                        listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias
                                                     }
                                                 }
                                                 cargando = false
@@ -440,13 +442,19 @@ class HomeScreen : Screen {
                                     onLogin = {
                                         scope.launch {
                                             cargando = true
+
+                                            // 1. Limpiamos datos locales previos
+                                            UserManager.borrarTodoDeFabrica()
+
                                             val usuario = authManager.iniciarSesionGoogle()
                                             if (usuario != null) {
                                                 usuarioActual = usuario
+                                                // 2. Forzamos la descarga desde la nube
                                                 UserManager.sincronizarDesdeNube()
                                                 cargarDatos(servicio) { lista, continuar, categorias ->
-                                                    listaCompleta = lista; mangasContinuar =
-                                                    continuar; categoriasDinamicas = categorias
+                                                    listaCompleta = lista
+                                                    mangasContinuar = continuar
+                                                    categoriasDinamicas = categorias
                                                 }
                                             }
                                             cargando = false
@@ -455,8 +463,21 @@ class HomeScreen : Screen {
                                     onChangeAccount = {
                                         scope.launch {
                                             cargando = true
+                                            authManager.cerrarSesion()
+                                            UserManager.borrarTodoDeFabrica()
+
                                             val usuario = authManager.iniciarSesionGoogle()
-                                            if (usuario != null) usuarioActual = usuario
+                                            if (usuario != null) {
+                                                usuarioActual = usuario
+                                                UserManager.sincronizarDesdeNube()
+                                                cargarDatos(servicio) { lista, continuar, categorias ->
+                                                    listaCompleta = lista; mangasContinuar = continuar; categoriasDinamicas = categorias
+                                                }
+
+                                                seccionActual = Seccion.INICIO
+                                            } else {
+                                                usuarioActual = null // Si cancela el login, se queda deslogueado correctamente
+                                            }
                                             cargando = false
                                         }
                                     },
