@@ -318,9 +318,11 @@ data class LectorCapituloScreen(
 
                             ) {
                                 items(paginas, key = { it }) { rutaPagina ->
+                                    // ... dentro de tu items(paginas) { rutaPagina -> ...
                                     val request = remember(rutaPagina, context) {
                                         ImageRequest.Builder(context)
-                                            .data(if (rutaPagina.startsWith("http")) rutaPagina else rutaPagina.toPath())
+                                            // 🔥 EL CAMBIO: Forzamos a que Coil lo entienda como un archivo local válido
+                                            .data(if (rutaPagina.startsWith("http")) rutaPagina else "file://$rutaPagina")
                                             .size(Size.ORIGINAL)
                                             .scale(Scale.FIT)
                                             .memoryCachePolicy(CachePolicy.ENABLED)

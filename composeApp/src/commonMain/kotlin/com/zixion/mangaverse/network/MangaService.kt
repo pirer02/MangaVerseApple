@@ -30,9 +30,9 @@ private val globalJson = Json { ignoreUnknownKeys = true; coerceInputValues = tr
 private val globalClient = HttpClient {
     install(ContentNegotiation) { json(globalJson) }
     install(HttpTimeout) {
-        requestTimeoutMillis = 60000
-        connectTimeoutMillis = 10000
-        socketTimeoutMillis = 60000
+        requestTimeoutMillis = 180000 // Subimos a 3 minutos (180,000 ms)
+        connectTimeoutMillis = 15000  // 15 segundos para conectar
+        socketTimeoutMillis = 180000  // 3 minutos para mantener el enchufe vivo
     }
     install(HttpRequestRetry) { retryOnServerErrors(maxRetries = 2); exponentialDelay() }
 }
@@ -67,28 +67,29 @@ class MangaService {
             val capEncoded = capName.replace(" ", "%20")
 
             val endpoint = if (isColor) "${urlBase}download/$mangaId/color/$capEncoded" else "${urlBase}download/$mangaId/$capEncoded"
+            println("MANGA_DEBUG: Intentando descargar desde -> $endpoint")
 
             val tempDir = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
-            val tempFile = tempDir / "temp_descarga.zip"
+            val tempFile = tempDir / "temp_${mangaId}_${capName}.zip"
 
-            client.prepareGet(endpoint).execute { response ->
-                val channel = response.bodyAsChannel()
-                FileSystem.SYSTEM.sink(tempFile).buffer().use { sink ->
-                    while (!channel.isClosedForRead) {
-                        val packet = channel.readRemaining(8192)
-                        while (!packet.isEmpty) { sink.write(packet.readBytes()) }
-                    }
-                }
+            // ⚡ LA SOLUCIÓN NUCLEAR: Descargamos TODO de golpe en un array de bytes.
+            // Esto evita el 100% de los "unexpected end of stream" por cortes de Python.
+            val responseBytes: ByteArray = client.get(endpoint).body()
+
+            FileSystem.SYSTEM.sink(tempFile).buffer().use { sink ->
+                sink.write(responseBytes)
             }
+            println("MANGA_DEBUG: Archivo guardado al 100% en temporal.")
 
-            // LA MAGIA AQUÍ: Separa las carpetas de caché
             val cacheFolderName = if (isColor) "${capName}_COLOR" else capName
-
             val rutas = ZipHelper.descomprimir(tempFile.toString(), "cache", mangaId, cacheFolderName)
             FileSystem.SYSTEM.delete(tempFile)
             return@withContext rutas
 
         } catch (e: Exception) {
+            println("MANGA_DEBUG: 🚨 ERROR EN KTOR DESCARGANDO: ${e.message}")
+            e.printStackTrace()
+
             try {
                 val mangaId = mangaTitulo.replace(" ", "_")
                 val capName = if (capitulo.endsWith(".cbz")) capitulo else "$capitulo.cbz"

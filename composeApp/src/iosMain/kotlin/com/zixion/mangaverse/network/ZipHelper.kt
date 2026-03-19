@@ -7,7 +7,10 @@ import okio.Path.Companion.toPath
 actual object ZipHelper {
 
     actual fun descomprimir(rutaZip: String, rutaCache: String, nombreManga: String, nombreCapitulo: String): List<String> {
-        // 1. Preparar rutas (Las imágenes SÍ van a la caché porque pesan mucho y se pueden volver a descargar)
+        // 1. EL SALVAVIDAS "DUMMY": Si Ktor falló, nos rendimos en paz sin crashear iOS.
+        if (rutaZip == "dummy") return emptyList()
+
+        // Preparar rutas (Caché de iOS)
         val fileManager = NSFileManager.defaultManager
         val urls = fileManager.URLsForDirectory(NSCachesDirectory, NSUserDomainMask)
         val cacheUrl = urls.first() as? NSURL ?: return emptyList()
@@ -21,21 +24,42 @@ actual object ZipHelper {
         val zipFilePath = rutaZip.toPath()
 
         try {
-            if (!fs.exists(mangaFolder)) {
-                fs.createDirectories(mangaFolder)
-            } else {
+            // 2. ANTÍDOTO CACHÉ ZOMBI
+            if (fs.exists(mangaFolder)) {
                 val existing = fs.list(mangaFolder).filter { esImagen(it.name) }
-                if (existing.isNotEmpty()) return existing.map { it.toString() }.sorted()
+                if (existing.isNotEmpty()) {
+                    return existing.map { it.toString() }.sorted()
+                } else {
+                    // Si la carpeta está corrupta o vacía, la aniquilamos
+                    fs.deleteRecursively(mangaFolder)
+                    fs.createDirectories(mangaFolder)
+                }
+            } else {
+                fs.createDirectories(mangaFolder)
             }
 
+            // Usamos Okio para leer el ZIP
             val zipFileSystem = fs.openZip(zipFilePath)
-            val archivosEnZip = zipFileSystem.listRecursively(".".toPath()).toList()
+            val archivosEnZip = zipFileSystem.listRecursively("/".toPath()).toList()
 
             for (archivoEnZip in archivosEnZip) {
                 if (!zipFileSystem.metadata(archivoEnZip).isDirectory) {
-                    val nombreArchivo = archivoEnZip.name
-                    if (esImagen(nombreArchivo)) {
-                        val destino = mangaFolder / nombreArchivo
+
+                    // 3. EL APLANADOR + LIMPIEZA DE SÍMBOLOS ROTOS (#, %)
+                    // En Okio, 'archivoEnZip' es una ruta absoluta interna (ej. "/Carpeta/01.jpg")
+                    var nombreSeguro = archivoEnZip.toString()
+                        .replace("\\", "_")
+                        .replace("/", "_")
+                        .replace("#", "_")
+                        .replace("%", "_")
+
+                    // Le quitamos el primer guion bajo si Okio lo puso al principio
+                    if (nombreSeguro.startsWith("_")) {
+                        nombreSeguro = nombreSeguro.drop(1)
+                    }
+
+                    if (esImagen(nombreSeguro)) {
+                        val destino = mangaFolder / nombreSeguro
                         zipFileSystem.source(archivoEnZip).buffer().use { source ->
                             fs.sink(destino).buffer().use { sink ->
                                 sink.writeAll(source)
@@ -48,17 +72,24 @@ actual object ZipHelper {
 
         } catch (e: Exception) {
             e.printStackTrace()
+            // Limpieza: Si estalla a mitad de extracción, borramos todo
+            if (fs.exists(mangaFolder)) {
+                try { fs.deleteRecursively(mangaFolder) } catch (ex: Exception) {}
+            }
             return emptyList()
         }
     }
 
     private fun esImagen(nombre: String): Boolean {
         val n = nombre.lowercase()
+        // 4. ANTÍDOTO MAC OS: Ignorar archivos basura '._'
+        val nombrePuro = nombre.split("/").last().split("\\").last().lowercase()
+        if (nombrePuro.startsWith("._")) return false
+
         return n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") || n.endsWith(".webp")
     }
 
     actual fun guardarTexto(nombreArchivo: String, texto: String) {
-        // Los datos del usuario (JSON) van a Documents para que iOS NO los borre automáticamente
         val fileManager = NSFileManager.defaultManager
         val urls = fileManager.URLsForDirectory(NSDocumentDirectory, NSUserDomainMask)
         val docUrl = urls.first() as? NSURL ?: return
