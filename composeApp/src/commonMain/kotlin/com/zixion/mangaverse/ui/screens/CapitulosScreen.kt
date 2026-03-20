@@ -39,12 +39,13 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import coil3.compose.AsyncImage
+import com.zixion.mangaverse.CommonSerializable
 import com.zixion.mangaverse.models.Manga
 import com.zixion.mangaverse.network.MangaService
 import com.zixion.mangaverse.network.UserManager
 import kotlinx.coroutines.launch
 
-data class CapitulosScreen(val mangaInicial: Manga) : Screen {
+data class CapitulosScreen(val mangaInicial: Manga) : Screen, CommonSerializable {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
