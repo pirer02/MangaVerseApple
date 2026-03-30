@@ -45,7 +45,6 @@ import coil3.request.CachePolicy
 import coil3.request.crossfade
 import coil3.size.Scale
 import coil3.size.Size
-import com.zixion.mangaverse.CommonSerializable
 import com.zixion.mangaverse.models.Manga
 import com.zixion.mangaverse.network.MangaService
 import com.zixion.mangaverse.network.UserManager
@@ -58,7 +57,7 @@ data class LectorCapituloScreen(
     val capituloInicial: String,
     val listaTodosCapitulos: List<String>,
     val esColor: Boolean
-) : Screen, CommonSerializable {
+) : Screen {
 
     @Composable
     override fun Content() {
