@@ -102,33 +102,58 @@ class MangaService {
     }
 
     suspend fun obtenerMangas(): List<Manga> = withContext(Dispatchers.IO) {
-        val cachedText = ZipHelper.leerTexto("mangas_list.json")
+        // Usamos un nuevo nombre de archivo de caché para que no pete con la versión vieja
+        val cachedText = ZipHelper.leerTexto("mangas_list_v2.json")
         val isCacheExpirada = UserManager.isCacheExpired()
 
         if (cachedText != null && !isCacheExpirada) {
             try {
-                val nombres: List<String> = globalJson.decodeFromString(cachedText)
+                val dtos = globalJson.decodeFromString<List<MangaApiDto>>(cachedText)
                 val url = determinarUrlBase()
-                return@withContext nombres.map { Manga(titulo = it.replace("_", " "), urlPortada = "${url}mangas/$it/portada") }
+                return@withContext dtos.map { dto ->
+                    Manga(
+                        titulo = dto.titulo,
+                        urlPortada = "${url}mangas/${dto.id_carpeta}/portada",
+                        sinopsis = dto.descripcion,
+                        generos = dto.generos,
+                        estado = dto.estado,
+                        tipo = dto.tipo
+                    )
+                }
             } catch (e: Exception) { }
         }
 
         try {
             val url = determinarUrlBase()
             val responseText = client.get("${url}mangas").bodyAsText()
-            ZipHelper.guardarTexto("mangas_list.json", responseText)
+            ZipHelper.guardarTexto("mangas_list_v2.json", responseText)
 
-            // BORRA O COMENTA ESTA LÍNEA:
-            //UserManager.actualizarTimestampCache()
-
-            val nombres: List<String> = globalJson.decodeFromString(responseText)
-            return@withContext nombres.map { Manga(titulo = it.replace("_", " "), urlPortada = "${url}mangas/$it/portada") }
+            val dtos = globalJson.decodeFromString<List<MangaApiDto>>(responseText)
+            return@withContext dtos.map { dto ->
+                Manga(
+                    titulo = dto.titulo,
+                    urlPortada = "${url}mangas/${dto.id_carpeta}/portada",
+                    sinopsis = dto.descripcion,
+                    generos = dto.generos,
+                    estado = dto.estado,
+                    tipo = dto.tipo
+                )
+            }
         } catch (e: Exception) {
             if (cachedText != null) {
                 try {
-                    val nombres: List<String> = globalJson.decodeFromString(cachedText)
+                    val dtos = globalJson.decodeFromString<List<MangaApiDto>>(cachedText)
                     val url = determinarUrlBase()
-                    return@withContext nombres.map { Manga(titulo = it.replace("_", " "), urlPortada = "${url}mangas/$it/portada") }
+                    return@withContext dtos.map { dto ->
+                        Manga(
+                            titulo = dto.titulo,
+                            urlPortada = "${url}mangas/${dto.id_carpeta}/portada",
+                            sinopsis = dto.descripcion,
+                            generos = dto.generos,
+                            estado = dto.estado,
+                            tipo = dto.tipo
+                        )
+                    }
                 } catch (e2: Exception) { return@withContext emptyList() }
             }
             return@withContext emptyList()
@@ -210,3 +235,13 @@ class MangaService {
 
 @Serializable
 private data class MangaInfoResponse(val titulo: String? = null, val descripcion: String? = null, val estado: String? = null, val tipo: String? = null, val generos: List<String> = emptyList())
+
+@Serializable
+private data class MangaApiDto(
+    val id_carpeta: String,
+    val titulo: String,
+    val descripcion: String = "Sin descripción",
+    val estado: String = "Desconocido",
+    val tipo: String = "Manga",
+    val generos: List<String> = emptyList()
+)

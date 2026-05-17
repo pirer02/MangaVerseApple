@@ -81,7 +81,7 @@ class HomeScreen : Screen {
         val estadoGlobal = UserManager.estadoReactivo
 
         val inicioScrollState = rememberLazyListState()
-        val biblioScrollState = rememberLazyListState()
+        val biblioScrollState = rememberLazyGridState()
         val explorarGridState = rememberLazyGridState()
 
         var explorarQuery by rememberSaveable { mutableStateOf("") }
@@ -797,10 +797,11 @@ class HomeScreen : Screen {
 
         val cacheEstabaExpirada = UserManager.isCacheExpired()
 
-        val todosBasicos = servicio.obtenerMangas()
-        val todosCompletos = todosBasicos.map { async { servicio.obtenerInfoManga(it) } }.awaitAll()
+        // ¡Adiós al awaitAll()! obtenerMangas ya trae toda la info de un plumazo
+        val todosCompletos = servicio.obtenerMangas()
 
         val listaContinuarTemp = mutableListOf<ContinuarData>()
+
         todosCompletos.forEach { manga ->
             val ultimoNormal = UserManager.getUltimoCapitulo(manga.titulo, false)
             val ultimoColor = UserManager.getUltimoCapitulo(manga.titulo, true)
@@ -1242,7 +1243,10 @@ fun VistaInicio(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(continuar) { data ->
+                    items(
+                        items = continuar,
+                        key = { data -> "continuar_${data.manga.titulo}" } // <-- CLAVE ÚNICA AÑADIDA
+                    ) { data ->
                         val nombreVisible = data.capitulo.replace(".cbz", "").replace(".zip", "")
                         val suffix = if (data.modo == ModoLectura.COLOR) " (Color)" else ""
                         MangaCard(
@@ -1259,7 +1263,10 @@ fun VistaInicio(
                 }
             }
         }
-        items(categorias) { categoria ->
+        items(
+            items = categorias,
+            key = { categoria -> "cat_${categoria.titulo}" } // <-- CLAVE ÚNICA AÑADIDA
+        ) { categoria ->
             FilaGenero(
                 categoria.titulo,
                 categoria.mangas,
@@ -1289,7 +1296,10 @@ fun FilaGenero(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(lista) { manga ->
+            items(
+                items = lista,
+                key = { manga -> "gen_${titulo}_${manga.titulo}" } // <-- CLAVE ÚNICA AÑADIDA
+            ) { manga ->
                 MangaCard(
                     manga = manga,
                     enBiblioteca = UserManager.enBiblioteca(manga.titulo),
@@ -1302,47 +1312,48 @@ fun FilaGenero(
 
 @Composable
 fun VistaBiblioteca(
-    state: LazyListState,
+    state: LazyGridState, // <-- ACTUALIZADO A LazyGridState
     lista: List<Manga>,
     onClick: (Manga) -> Unit,
     onToggle: (Manga) -> Unit
 ) {
     val enBiblio = lista.filter { UserManager.enBiblioteca(it.titulo) }
 
-    LazyColumn(
-        state = state,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 30.dp)
-    ) {
-        item {
-            Text(
-                "Guardados",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            "Guardados",
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(16.dp)
+        )
+
         if (enBiblio.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
-                    contentAlignment = Alignment.Center
-                ) { Text("Tu biblioteca está vacía.", color = Color.Gray) }
-            }
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) { Text("Tu biblioteca está vacía.", color = Color.Gray) }
         } else {
-            items(enBiblio.chunked(3)) { fila ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    fila.forEach { m ->
-                        MangaCard(
-                            manga = m,
-                            enBiblioteca = true,
-                            onToggleLibrary = { onToggle(m) },
-                            onClick = { onClick(m) })
-                    }
+            LazyVerticalGrid(
+                state = state,
+                columns = GridCells.Adaptive(minSize = 110.dp), // Calcula columnas automáticamente
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 30.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(
+                    items = enBiblio,
+                    key = { manga -> "biblio_${manga.titulo}" }
+                ) { m ->
+                    MangaCard(
+                        manga = m,
+                        enBiblioteca = true,
+                        // ESTA ES LA MAGIA: Ocupa todo el ancho de su celda y mantiene proporción
+                        modifier = Modifier.fillMaxWidth().aspectRatio(0.7f),
+                        onToggleLibrary = { onToggle(m) },
+                        onClick = { onClick(m) }
+                    )
                 }
             }
         }
@@ -1532,10 +1543,14 @@ fun VistaExplorar(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(mangasFiltrados) { manga ->
+                items(
+                    items = mangasFiltrados,
+                    key = { manga -> "exp_${manga.titulo}" } // <-- CLAVE ÚNICA AÑADIDA
+                ) { manga ->
                     MangaCard(
                         manga = manga,
                         enBiblioteca = UserManager.enBiblioteca(manga.titulo),
+                        modifier = Modifier.fillMaxWidth().aspectRatio(0.7f), // <-- NUEVO
                         onToggleLibrary = { onToggle(manga) },
                         onClick = { onClick(manga) }
                     )

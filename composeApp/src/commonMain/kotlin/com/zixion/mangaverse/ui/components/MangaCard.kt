@@ -36,20 +36,25 @@ fun MangaCard(
     esGrande: Boolean = false,
     enBiblioteca: Boolean = false,
     subtitulo: String? = null,
+    modifier: Modifier = Modifier, // <-- NUEVO: Permite que el padre dicte el tamaño
     onToggleLibrary: () -> Unit,
     onClick: () -> Unit,
     onDeleteProgress: (() -> Unit)? = null,
-    onInfoClick: (() -> Unit)? = null // NUEVO: Para ir a la ficha del manga
+    onInfoClick: (() -> Unit)? = null
 ) {
-    val ancho = if (esGrande) 140.dp else 110.dp
-    val alto = if (esGrande) 200.dp else 160.dp
+    // Si NO le pasamos un modifier personalizado, usa los fijos de siempre (ideal para los LazyRow de Inicio)
+    val modifierFinal = if (modifier == Modifier) {
+        val ancho = if (esGrande) 140.dp else 110.dp
+        val alto = if (esGrande) 200.dp else 160.dp
+        Modifier.width(ancho).height(alto)
+    } else {
+        modifier // Si el padre le pasa un modifier (como fillMaxWidth), usa el del padre
+    }
 
     var menuExpandido by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier
-            .width(ancho)
-            .height(alto)
+        modifier = modifierFinal // <-- USAMOS EL NUEVO MODIFIER AQUÍ
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
     ) {

@@ -7,6 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -51,6 +55,7 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
     override fun Content() {
         val scope = rememberCoroutineScope()
         val listState = rememberLazyListState()
+        val gridState = rememberLazyGridState() // NUEVO: Para el scroll en iPad
 
         val navigator = LocalNavigator.current
         val servicio = remember { MangaService() }
@@ -93,10 +98,9 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
             }
         }
 
-        // NUEVO: Aseguramos que la lista suba al principio de forma fiable
-        // tanto al cambiar el orden como al escribir en el buscador
         LaunchedEffect(ordenInverso, textoBusqueda) {
             listState.scrollToItem(0)
+            gridState.scrollToItem(0)
         }
 
         val capitulosFiltrados = remember(textoBusqueda, listaCapitulos, ordenInverso) {
@@ -113,125 +117,237 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
         Scaffold(
             containerColor = Color(0xFF141414)
         ) { padding ->
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-                Column(modifier = Modifier.fillMaxSize().background(Color(0xFF141414))) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        AsyncImage(model = mangaCompleto.urlPortada, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().blur(radius = 15.dp).alpha(0.4f))
-                        Box(modifier = Modifier.matchParentSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color(0xFF141414)))))
-                        IconButton(onClick = { navigator?.pop() }, modifier = Modifier.align(Alignment.TopStart).padding(start = 4.dp, top = 4.dp)) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
-                        }
-                        Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 50.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
-                            AsyncImage(model = mangaCompleto.urlPortada, contentDescription = null, modifier = Modifier.width(90.dp).height(130.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
-                            Spacer(modifier = Modifier.width(16.dp))
+            // AQUÍ ESTÁ LA MAGIA: BoxWithConstraints mide la pantalla
+            BoxWithConstraints(modifier = Modifier.padding(padding).fillMaxSize()) {
+                val esPantallaGrande = maxWidth >= 600.dp
 
-                            Column(modifier = Modifier.height(130.dp)) {
-                                Box(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                                    Text(mangaCompleto.titulo, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, lineHeight = 24.sp)
+                if (esPantallaGrande) {
+                    // =========================================================
+                    // DISEÑO ADAPTATIVO PARA TABLET / IPAD PRO
+                    // =========================================================
+                    Row(modifier = Modifier.fillMaxSize().background(Color(0xFF141414))) {
+
+                        // --- PANEL IZQUIERDO: Información del Manga ---
+                        Box(modifier = Modifier.weight(0.4f).fillMaxHeight()) {
+                            // Fondo difuminado detrás de la info
+                            AsyncImage(model = mangaCompleto.urlPortada, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().blur(radius = 20.dp).alpha(0.3f))
+                            Box(modifier = Modifier.matchParentSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color(0xFF141414)))))
+
+                            Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
+                                IconButton(onClick = { navigator?.pop() }, modifier = Modifier.padding(bottom = 16.dp)) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
+
+                                AsyncImage(
+                                    model = mangaCompleto.urlPortada,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxWidth(0.8f).aspectRatio(0.7f).align(Alignment.CenterHorizontally).clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                Text(mangaCompleto.titulo, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, lineHeight = 32.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(color = colorEstado, shape = RoundedCornerShape(4.dp), modifier = Modifier.padding(end = 8.dp)) {
-                                        Text(mangaCompleto.estado.uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        Text(mangaCompleto.estado.uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                                     }
-                                    Text(mangaCompleto.tipo.uppercase(), fontSize = 12.sp, color = Color.Gray)
+                                    Text(mangaCompleto.tipo.uppercase(), fontSize = 14.sp, color = Color.LightGray)
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                if (mangaCompleto.generos.isNotEmpty()) {
+                                    LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(mangaCompleto.generos) { genero ->
+                                            Surface(color = Color.DarkGray.copy(alpha = 0.6f), shape = RoundedCornerShape(16.dp)) {
+                                                Text(text = genero.trim(), color = Color.LightGray, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+
+                                Text(text = mangaCompleto.sinopsis, color = Color.LightGray, fontSize = 16.sp, lineHeight = 24.sp)
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                if (existeColor) {
+                                    Button(
+                                        onClick = { modoColorActivo = !modoColorActivo },
+                                        colors = ButtonDefaults.buttonColors(containerColor = if (modoColorActivo) Color(0xFFE50914) else Color.DarkGray),
+                                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(if (modoColorActivo) "Ver Original \uD83D\uDCC4" else "Ver a Color \uD83C\uDFA8", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
                                 }
                             }
                         }
-                    }
 
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        // --- PANEL DERECHO: Capítulos y Buscador ---
+                        Column(modifier = Modifier.weight(0.6f).fillMaxHeight().padding(top = 24.dp, end = 24.dp, start = 16.dp)) {
+                            OutlinedTextField(
+                                value = textoBusqueda, onValueChange = { textoBusqueda = it }, placeholder = { Text("Buscar capítulo...", color = Color.Gray) },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                                trailingIcon = { if (textoBusqueda.isNotEmpty()) IconButton(onClick = { textoBusqueda = "" }) { Icon(Icons.Default.Close, contentDescription = "Borrar", tint = Color.Gray) } },
+                                modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.Red, focusedBorderColor = Color.Red, unfocusedBorderColor = Color.DarkGray),
+                                singleLine = true, shape = RoundedCornerShape(12.dp)
+                            )
 
-                        if (mangaCompleto.generos.isNotEmpty()) {
-                            LazyRow(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(mangaCompleto.generos) { genero ->
-                                    Surface(
-                                        color = Color.DarkGray.copy(alpha = 0.6f),
-                                        shape = RoundedCornerShape(16.dp)
-                                    ) {
-                                        Text(
-                                            text = genero.trim(),
-                                            color = Color.LightGray,
-                                            fontSize = 12.sp,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            Row(modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Capítulos: ${capitulosFiltrados.size}", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = {
+                                        scope.launch { cargando = true; listaCapitulos = servicio.obtenerCapitulos(mangaInicial.titulo, modoColorActivo, forceRefresh = true); cargando = false }
+                                    }) { Icon(Icons.Default.Refresh, contentDescription = "Actualizar", tint = Color.Gray) }
+
+                                    val tieneProgreso = remember(refreshTrigger) { UserManager.tieneCapitulosLeidos(mangaCompleto.titulo) }
+                                    if (tieneProgreso) {
+                                        IconButton(onClick = { mostrarDialogoBorrarProgreso = true }, modifier = Modifier.size(36.dp)) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = Color.Gray)
+                                        }
+                                    }
+
+                                    TextButton(onClick = { ordenInverso = !ordenInverso }) {
+                                        Text(if (ordenInverso) "Más nuevos" else "Más viejos", color = Color.Gray, fontSize = 14.sp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Icon(if(ordenInverso) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, "Ordenar", tint = Color.Gray)
+                                    }
+                                }
+                            }
+
+                            if (cargando) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.Red) }
+                            } else if (capitulosFiltrados.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No se encontraron capítulos.", color = Color.Gray) }
+                            } else {
+                                // EN IPAD: Usamos LazyVerticalGrid para mostrar 2 columnas
+                                LazyVerticalGrid(
+                                    state = gridState,
+                                    columns = GridCells.Fixed(2),
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(bottom = 80.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(items = capitulosFiltrados, key = { it }, contentType = { "capitulo" }) { capitulo ->
+                                        val nombreLimpio = capitulo.replace(".cbz", "").replace(".zip", "")
+                                        val leido = remember(refreshTrigger, modoColorActivo) { UserManager.isCapituloLeido(mangaCompleto.titulo, nombreLimpio, modoColorActivo) }
+
+                                        CapituloItem(
+                                            nombre = nombreLimpio,
+                                            leido = leido,
+                                            // Quitamos el padding horizontal extra para que cuadre en la Grid
+                                            modifier = Modifier.fillMaxWidth(),
+                                            onClick = { navigator?.push(LectorCapituloScreen(manga = mangaCompleto, capituloInicial = capitulo, listaTodosCapitulos = listaCapitulos, esColor = modoColorActivo)) },
+                                            onMarcarLeido = {
+                                                if (leido) UserManager.desmarcarCapitulo(mangaCompleto.titulo, nombreLimpio, modoColorActivo)
+                                                else { UserManager.marcarCapituloComoLeido(mangaCompleto.titulo, nombreLimpio, modoColorActivo); UserManager.guardarProgreso(mangaCompleto.titulo, nombreLimpio, 0, modoColorActivo) }
+                                                refreshTrigger++
+                                            }
                                         )
                                     }
                                 }
                             }
                         }
+                    }
+                } else {
+                    // =========================================================
+                    // DISEÑO CLÁSICO PARA MÓVIL (Tu código original)
+                    // =========================================================
+                    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF141414))) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            AsyncImage(model = mangaCompleto.urlPortada, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().blur(radius = 15.dp).alpha(0.4f))
+                            Box(modifier = Modifier.matchParentSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color(0xFF141414)))))
+                            IconButton(onClick = { navigator?.pop() }, modifier = Modifier.align(Alignment.TopStart).padding(start = 4.dp, top = 4.dp)) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 50.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
+                                AsyncImage(model = mangaCompleto.urlPortada, contentDescription = null, modifier = Modifier.width(90.dp).height(130.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                                Spacer(modifier = Modifier.width(16.dp))
 
-                        Column(modifier = Modifier.animateContentSize()) { Text(text = mangaCompleto.sinopsis, color = Color.LightGray, fontSize = 14.sp, lineHeight = 20.sp, maxLines = if (sinopsisExpandida) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis) }
-                        Text(text = if (sinopsisExpandida) "Mostrar menos" else "Mostrar todo...", color = Color(0xFFE50914), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp).clickable { sinopsisExpandida = !sinopsisExpandida })
-
-                        if (existeColor) {
-                            Button(onClick = { modoColorActivo = !modoColorActivo }, colors = ButtonDefaults.buttonColors(containerColor = if (modoColorActivo) Color(0xFFE50914) else Color.DarkGray), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text(if (modoColorActivo) "Ver Original 📄" else "Ver a Color 🎨") }
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
-                        OutlinedTextField(value = textoBusqueda, onValueChange = { textoBusqueda = it }, placeholder = { Text("Buscar capítulo...", color = Color.Gray) }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) }, trailingIcon = { if (textoBusqueda.isNotEmpty()) IconButton(onClick = { textoBusqueda = "" }) { Icon(Icons.Default.Close, contentDescription = "Borrar", tint = Color.Gray) } }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.Red, focusedBorderColor = Color.Red, unfocusedBorderColor = Color.DarkGray), singleLine = true, shape = RoundedCornerShape(12.dp))
-
-                        Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Capítulos: ${capitulosFiltrados.size}", color = Color.White, fontWeight = FontWeight.Bold)
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = {
-                                    scope.launch {
-                                        cargando = true
-                                        listaCapitulos = servicio.obtenerCapitulos(mangaInicial.titulo, modoColorActivo, forceRefresh = true)
-                                        cargando = false
+                                Column(modifier = Modifier.height(130.dp)) {
+                                    Box(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                                        Text(mangaCompleto.titulo, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, lineHeight = 24.sp)
                                     }
-                                }) {
-                                    Icon(Icons.Default.Refresh, contentDescription = "Actualizar Capítulos", tint = Color.Gray)
-                                }
-
-                                val tieneProgreso = remember(refreshTrigger) { UserManager.tieneCapitulosLeidos(mangaCompleto.titulo) }
-
-                                if (tieneProgreso) {
-                                    IconButton(onClick = { mostrarDialogoBorrarProgreso = true }, modifier = Modifier.size(36.dp)) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Borrar progreso", tint = Color.Gray)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(color = colorEstado, shape = RoundedCornerShape(4.dp), modifier = Modifier.padding(end = 8.dp)) {
+                                            Text(mangaCompleto.estado.uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        }
+                                        Text(mangaCompleto.tipo.uppercase(), fontSize = 12.sp, color = Color.Gray)
                                     }
-                                }
-
-                                // Hemos quitado de aquí el scrollToItem porque ahora lo maneja el LaunchedEffect de arriba
-                                TextButton(onClick = { ordenInverso = !ordenInverso }) {
-                                    Text(if (ordenInverso) "Más nuevos" else "Más viejos", color = Color.Gray, fontSize = 12.sp)
-                                    Spacer(Modifier.width(4.dp))
-                                    Icon(if(ordenInverso) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, "Ordenar", tint = Color.Gray)
                                 }
                             }
                         }
-                    }
 
-                    LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 80.dp)) {
-                        if (cargando) {
-                            item { Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.Red) } }
-                        } else {
-                            if (capitulosFiltrados.isEmpty()) {
-                                item { Text("No se encontraron capítulos.", color = Color.Gray, modifier = Modifier.padding(16.dp)) }
-                            } else {
-                                items(items = capitulosFiltrados, key = { it }, contentType = { "capitulo" }) { capitulo ->
-                                    val nombreLimpio = capitulo.replace(".cbz", "").replace(".zip", "")
-
-                                    val leido = remember(refreshTrigger, modoColorActivo) { UserManager.isCapituloLeido(mangaCompleto.titulo, nombreLimpio, modoColorActivo) }
-
-                                    CapituloItem(
-                                        nombre = nombreLimpio,
-                                        leido = leido,
-                                        onClick = {
-                                            navigator?.push(LectorCapituloScreen(manga = mangaCompleto, capituloInicial = capitulo, listaTodosCapitulos = listaCapitulos, esColor = modoColorActivo))
-                                        },
-                                        onMarcarLeido = {
-                                            if (leido) UserManager.desmarcarCapitulo(mangaCompleto.titulo, nombreLimpio, modoColorActivo)
-                                            else {
-                                                UserManager.marcarCapituloComoLeido(mangaCompleto.titulo, nombreLimpio, modoColorActivo)
-                                                UserManager.guardarProgreso(mangaCompleto.titulo, nombreLimpio, 0, modoColorActivo)
-                                            }
-                                            refreshTrigger++
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            if (mangaCompleto.generos.isNotEmpty()) {
+                                LazyRow(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(mangaCompleto.generos) { genero ->
+                                        Surface(color = Color.DarkGray.copy(alpha = 0.6f), shape = RoundedCornerShape(16.dp)) {
+                                            Text(text = genero.trim(), color = Color.LightGray, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
                                         }
-                                    )
+                                    }
+                                }
+                            }
+
+                            Column(modifier = Modifier.animateContentSize()) { Text(text = mangaCompleto.sinopsis, color = Color.LightGray, fontSize = 14.sp, lineHeight = 20.sp, maxLines = if (sinopsisExpandida) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis) }
+                            Text(text = if (sinopsisExpandida) "Mostrar menos" else "Mostrar todo...", color = Color(0xFFE50914), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp).clickable { sinopsisExpandida = !sinopsisExpandida })
+
+                            if (existeColor) {
+                                Button(onClick = { modoColorActivo = !modoColorActivo }, colors = ButtonDefaults.buttonColors(containerColor = if (modoColorActivo) Color(0xFFE50914) else Color.DarkGray), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text(if (modoColorActivo) "Ver Original \uD83D\uDCC4" else "Ver a Color \uD83C\uDFA8") }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
+                            OutlinedTextField(value = textoBusqueda, onValueChange = { textoBusqueda = it }, placeholder = { Text("Buscar capítulo...", color = Color.Gray) }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) }, trailingIcon = { if (textoBusqueda.isNotEmpty()) IconButton(onClick = { textoBusqueda = "" }) { Icon(Icons.Default.Close, contentDescription = "Borrar", tint = Color.Gray) } }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.Red, focusedBorderColor = Color.Red, unfocusedBorderColor = Color.DarkGray), singleLine = true, shape = RoundedCornerShape(12.dp))
+
+                            Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Capítulos: ${capitulosFiltrados.size}", color = Color.White, fontWeight = FontWeight.Bold)
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { scope.launch { cargando = true; listaCapitulos = servicio.obtenerCapitulos(mangaInicial.titulo, modoColorActivo, forceRefresh = true); cargando = false } }) {
+                                        Icon(Icons.Default.Refresh, contentDescription = "Actualizar Capítulos", tint = Color.Gray)
+                                    }
+
+                                    val tieneProgreso = remember(refreshTrigger) { UserManager.tieneCapitulosLeidos(mangaCompleto.titulo) }
+                                    if (tieneProgreso) {
+                                        IconButton(onClick = { mostrarDialogoBorrarProgreso = true }, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Delete, contentDescription = "Borrar progreso", tint = Color.Gray) }
+                                    }
+
+                                    TextButton(onClick = { ordenInverso = !ordenInverso }) {
+                                        Text(if (ordenInverso) "Más nuevos" else "Más viejos", color = Color.Gray, fontSize = 12.sp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Icon(if(ordenInverso) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, "Ordenar", tint = Color.Gray)
+                                    }
+                                }
+                            }
+                        }
+
+                        LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 80.dp)) {
+                            if (cargando) {
+                                item { Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.Red) } }
+                            } else {
+                                if (capitulosFiltrados.isEmpty()) {
+                                    item { Text("No se encontraron capítulos.", color = Color.Gray, modifier = Modifier.padding(16.dp)) }
+                                } else {
+                                    items(items = capitulosFiltrados, key = { it }, contentType = { "capitulo" }) { capitulo ->
+                                        val nombreLimpio = capitulo.replace(".cbz", "").replace(".zip", "")
+                                        val leido = remember(refreshTrigger, modoColorActivo) { UserManager.isCapituloLeido(mangaCompleto.titulo, nombreLimpio, modoColorActivo) }
+
+                                        CapituloItem(
+                                            nombre = nombreLimpio,
+                                            leido = leido,
+                                            // En móvil dejamos el modifier por defecto con su padding horizontal
+                                            onClick = { navigator?.push(LectorCapituloScreen(manga = mangaCompleto, capituloInicial = capitulo, listaTodosCapitulos = listaCapitulos, esColor = modoColorActivo)) },
+                                            onMarcarLeido = {
+                                                if (leido) UserManager.desmarcarCapitulo(mangaCompleto.titulo, nombreLimpio, modoColorActivo)
+                                                else { UserManager.marcarCapituloComoLeido(mangaCompleto.titulo, nombreLimpio, modoColorActivo); UserManager.guardarProgreso(mangaCompleto.titulo, nombreLimpio, 0, modoColorActivo) }
+                                                refreshTrigger++
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -247,14 +363,7 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
                 text = { Text("Se marcarán todos los capítulos como no leídos y este manga desaparecerá de tu lista de 'Continuar Leyendo'.", color = Color.LightGray) },
                 containerColor = Color(0xFF1E1E1E),
                 confirmButton = {
-                    Button(
-                        onClick = {
-                            UserManager.borrarProgresoManga(mangaCompleto.titulo)
-                            refreshTrigger++
-                            mostrarDialogoBorrarProgreso = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))
-                    ) { Text("Borrar progreso") }
+                    Button(onClick = { UserManager.borrarProgresoManga(mangaCompleto.titulo); refreshTrigger++; mostrarDialogoBorrarProgreso = false }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914))) { Text("Borrar progreso") }
                 },
                 dismissButton = {
                     TextButton(onClick = { mostrarDialogoBorrarProgreso = false }) { Text("Cancelar", color = Color.White) }
@@ -264,9 +373,20 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
     }
 }
 
+// NUEVO: Añadimos un parámetro 'modifier' a CapituloItem para poder quitarle el padding en iPad
 @Composable
-fun CapituloItem(nombre: String, leido: Boolean, onClick: () -> Unit, onMarcarLeido: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable(onClick = onClick)) {
+fun CapituloItem(
+    nombre: String,
+    leido: Boolean,
+    modifier: Modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), // Valor por defecto
+    onClick: () -> Unit,
+    onMarcarLeido: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier.clickable(onClick = onClick) // Usamos el modifier aquí
+    ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = if(leido) Color.Gray else Color.Red)
