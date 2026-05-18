@@ -225,7 +225,7 @@ data class CapitulosScreen(val mangaInicial: Manga) : Screen {
                                 // EN IPAD: Usamos LazyVerticalGrid para mostrar 2 columnas
                                 LazyVerticalGrid(
                                     state = gridState,
-                                    columns = GridCells.Fixed(2),
+                                    columns = GridCells.Fixed(1),
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(bottom = 80.dp),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),

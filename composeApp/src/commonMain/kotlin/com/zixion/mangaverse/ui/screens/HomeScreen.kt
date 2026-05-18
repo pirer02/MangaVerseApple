@@ -797,156 +797,96 @@ class HomeScreen : Screen {
 
         val cacheEstabaExpirada = UserManager.isCacheExpired()
 
-        // ¡Adiós al awaitAll()! obtenerMangas ya trae toda la info de un plumazo
+        // ¡Adiós al awaitAll() viejo! obtenerMangas ya trae toda la info de un plumazo
         val todosCompletos = servicio.obtenerMangas()
 
-        val listaContinuarTemp = mutableListOf<ContinuarData>()
+        // 🚀 PROCESAMIENTO EN PARALELO: Lee todos los historiales a la vez
+        val listaContinuarTemp = todosCompletos.map { manga ->
+            async {
+                val ultimoNormal = UserManager.getUltimoCapitulo(manga.titulo, false)
+                val ultimoColor = UserManager.getUltimoCapitulo(manga.titulo, true)
 
-        todosCompletos.forEach { manga ->
-            val ultimoNormal = UserManager.getUltimoCapitulo(manga.titulo, false)
-            val ultimoColor = UserManager.getUltimoCapitulo(manga.titulo, true)
+                if (ultimoNormal != null || ultimoColor != null) {
+                    try {
+                        val capsNormal = servicio.obtenerCapitulos(manga.titulo, false)
+                        val capsColor = try {
+                            servicio.obtenerCapitulos(manga.titulo, true)
+                        } catch (e: Exception) { emptyList() }
 
-            if (ultimoNormal != null || ultimoColor != null) {
-                try {
-                    val capsNormal = servicio.obtenerCapitulos(manga.titulo, false)
-                    val capsColor = try {
-                        servicio.obtenerCapitulos(manga.titulo, true)
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
+                        var scoreNormal = -1
+                        var nextCapNormal = ""
 
-                    var scoreNormal = -1
-                    var nextCapNormal = ""
-
-                    if (ultimoNormal != null) {
-                        val idx = capsNormal.indexOfFirst {
-                            it.replace(".cbz", "").replace(".zip", "") == ultimoNormal
-                        }
-                        if (idx != -1) {
-                            val leido =
-                                UserManager.isCapituloLeido(manga.titulo, ultimoNormal, false)
-
-                            if (leido && idx >= capsNormal.size - 1) {
-                                // No hacemos nada
-                            } else {
-                                scoreNormal = (idx * 2) + if (leido) 1 else 0
-                                val nextNormalIdx =
-                                    if (leido && idx < capsNormal.size - 1) idx + 1 else idx
-                                nextCapNormal = capsNormal[nextNormalIdx]
+                        if (ultimoNormal != null) {
+                            val idx = capsNormal.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoNormal }
+                            if (idx != -1) {
+                                val leido = UserManager.isCapituloLeido(manga.titulo, ultimoNormal, false)
+                                if (!leido || idx < capsNormal.size - 1) {
+                                    scoreNormal = (idx * 2) + if (leido) 1 else 0
+                                    val nextNormalIdx = if (leido && idx < capsNormal.size - 1) idx + 1 else idx
+                                    nextCapNormal = capsNormal[nextNormalIdx]
+                                }
                             }
                         }
-                    }
 
-                    var scoreColor = -1
-                    var nextCapColor = ""
-                    var colorTieneSiguiente = false
-                    var colorSePasaANormal = false
+                        var scoreColor = -1
+                        var nextCapColor = ""
+                        var colorTieneSiguiente = false
+                        var colorSePasaANormal = false
 
-                    if (ultimoColor != null) {
-                        val idxMasterDeColor = capsNormal.indexOfFirst {
-                            it.replace(".cbz", "").replace(".zip", "") == ultimoColor
-                        }
+                        if (ultimoColor != null) {
+                            val idxMasterDeColor = capsNormal.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
+                            if (idxMasterDeColor != -1) {
+                                val leido = UserManager.isCapituloLeido(manga.titulo, ultimoColor, true)
+                                val idxInColorList = capsColor.indexOfFirst { it.replace(".cbz", "").replace(".zip", "") == ultimoColor }
 
-                        if (idxMasterDeColor != -1) {
-                            val leido = UserManager.isCapituloLeido(manga.titulo, ultimoColor, true)
-                            val idxInColorList = capsColor.indexOfFirst {
-                                it.replace(".cbz", "").replace(".zip", "") == ultimoColor
-                            }
+                                val noHayMasColor = idxInColorList == -1 || idxInColorList >= capsColor.size - 1
+                                val noHayMasNormal = idxMasterDeColor >= capsNormal.size - 1
 
-                            val noHayMasColor =
-                                idxInColorList == -1 || idxInColorList >= capsColor.size - 1
-                            val noHayMasNormal = idxMasterDeColor >= capsNormal.size - 1
+                                if (!leido || !noHayMasColor || !noHayMasNormal) {
+                                    scoreColor = (idxMasterDeColor * 2) + if (leido) 1 else 0
 
-                            if (leido && noHayMasColor && noHayMasNormal) {
-                                // Fin del manga
-                            } else {
-                                scoreColor = (idxMasterDeColor * 2) + if (leido) 1 else 0
-
-                                if (idxInColorList != -1) {
-                                    if (leido) {
-                                        if (idxInColorList < capsColor.size - 1) {
-                                            nextCapColor = capsColor[idxInColorList + 1]
-                                            colorTieneSiguiente = true
-                                        } else {
-                                            if (idxMasterDeColor < capsNormal.size - 1) {
-                                                colorSePasaANormal = true
-                                                nextCapColor = capsNormal[idxMasterDeColor + 1]
+                                    if (idxInColorList != -1) {
+                                        if (leido) {
+                                            if (idxInColorList < capsColor.size - 1) {
+                                                nextCapColor = capsColor[idxInColorList + 1]
+                                                colorTieneSiguiente = true
                                             } else {
-                                                nextCapColor = capsNormal[idxMasterDeColor]
+                                                if (idxMasterDeColor < capsNormal.size - 1) {
+                                                    colorSePasaANormal = true
+                                                    nextCapColor = capsNormal[idxMasterDeColor + 1]
+                                                } else {
+                                                    nextCapColor = capsNormal[idxMasterDeColor]
+                                                }
                                             }
+                                        } else {
+                                            nextCapColor = capsColor[idxInColorList]
+                                            colorTieneSiguiente = true
                                         }
-                                    } else {
-                                        nextCapColor = capsColor[idxInColorList]
-                                        colorTieneSiguiente = true
                                     }
                                 }
                             }
                         }
-                    }
 
-                    if (scoreNormal != -1 || scoreColor != -1) {
-                        if (scoreNormal > scoreColor) {
-                            listaContinuarTemp.add(
-                                ContinuarData(
-                                    manga,
-                                    nextCapNormal,
-                                    ModoLectura.NORMAL
-                                )
-                            )
-                        } else if (scoreColor > scoreNormal) {
-                            if (colorSePasaANormal) {
-                                listaContinuarTemp.add(
-                                    ContinuarData(
-                                        manga,
-                                        nextCapColor,
-                                        ModoLectura.NORMAL
-                                    )
-                                )
+                        if (scoreNormal != -1 || scoreColor != -1) {
+                            if (scoreNormal > scoreColor) {
+                                return@async ContinuarData(manga, nextCapNormal, ModoLectura.NORMAL)
+                            } else if (scoreColor > scoreNormal) {
+                                if (colorSePasaANormal) return@async ContinuarData(manga, nextCapColor, ModoLectura.NORMAL)
+                                else return@async ContinuarData(manga, nextCapColor, ModoLectura.COLOR)
                             } else {
-                                listaContinuarTemp.add(
-                                    ContinuarData(
-                                        manga,
-                                        nextCapColor,
-                                        ModoLectura.COLOR
-                                    )
-                                )
-                            }
-                        } else {
-                            if (colorSePasaANormal) {
-                                listaContinuarTemp.add(
-                                    ContinuarData(
-                                        manga,
-                                        nextCapColor,
-                                        ModoLectura.NORMAL
-                                    )
-                                )
-                            } else if (colorTieneSiguiente) {
-                                listaContinuarTemp.add(
-                                    ContinuarData(
-                                        manga,
-                                        nextCapNormal,
-                                        ModoLectura.PREGUNTAR
-                                    )
-                                )
-                            } else {
-                                listaContinuarTemp.add(
-                                    ContinuarData(
-                                        manga,
-                                        nextCapNormal,
-                                        ModoLectura.NORMAL
-                                    )
-                                )
+                                if (colorSePasaANormal) return@async ContinuarData(manga, nextCapColor, ModoLectura.NORMAL)
+                                else if (colorTieneSiguiente) return@async ContinuarData(manga, nextCapNormal, ModoLectura.PREGUNTAR)
+                                else return@async ContinuarData(manga, nextCapNormal, ModoLectura.NORMAL)
                             }
                         }
-                    }
-
-
-                } catch (e: Exception) {
+                    } catch (e: Exception) { }
                 }
+                return@async null // Si no tiene progreso, devuelve nulo
             }
-        }
+        }.awaitAll().filterNotNull() // Espera a todos simultáneamente y limpia los nulos
 
         val generosPermitidos = listOf(
+            // ... (el código sigue igual a partir de aquí hacia abajo)
             "Shonen",
             "Accion",
             "Aventura",
