@@ -7,7 +7,10 @@
 MangaVerse es un ecosistema de lectura y gestión de manga diseñado para ofrecer una experiencia unificada a través de múltiples dispositivos (Android, iOS y Escritorio). 
 
 ## 📱 Vistazo a la App
-> **Nota para ti:** ¡Aquí debes poner capturas de pantalla o un GIF corto! Es fundamental que vean la interfaz. Puedes subir las imágenes arrastrándolas directamente al editor de GitHub.
+<img width="209" height="429" alt="image" src="https://github.com/user-attachments/assets/9a67e0ec-125c-4840-ba2d-82ae403cb52a" />
+<img width="204" height="423" alt="image" src="https://github.com/user-attachments/assets/21fe3e50-0d71-409c-939b-93e55726494f" />
+<img width="212" height="432" alt="image" src="https://github.com/user-attachments/assets/36deee18-d0b1-487c-9756-a114a5e53696" />
+
 <div align="center">
   <img src="enlace_a_tu_captura_1.png" width="200"/>
   <img src="enlace_a_tu_captura_2.png" width="200"/>
